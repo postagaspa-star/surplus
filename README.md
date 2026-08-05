@@ -1,48 +1,48 @@
 # Surplus
 
-![Piattaforma](https://img.shields.io/badge/piattaforma-Android%208.0%2B-3DDC84?logo=android&logoColor=white)
-![Versione](https://img.shields.io/badge/versione-2.2.0-14532D)
-![Privacy](https://img.shields.io/badge/dati-solo%20sul%20telefono-blue)
+![Platform](https://img.shields.io/badge/platform-Android%208.0%2B-3DDC84?logo=android&logoColor=white)
+![Version](https://img.shields.io/badge/version-2.2.0-14532D)
+![Privacy](https://img.shields.io/badge/data-on%20device%20only-blue)
 
-**App Android per tracciare l'alimentazione e gli allenamenti in fase di surplus calorico** (massa muscolare pulita). Pensata per essere veloce e usabile ogni giorno, non un tracker complesso da nutrizionista: la costanza conta più della precisione al grammo.
+**Android app for tracking food and training through a calorie surplus** (lean bulking). Built to be fast and usable every day rather than a nutritionist-grade tracker: consistency matters more than being accurate to the gram.
 
-Nessun account, nessuna pubblicità, nessun abbonamento. I dati restano sul telefono.
+No account, no ads, no subscription. Your data stays on the phone.
 
-## Cosa fa
+## What it does
 
-- **Diario alimentare** per momenti della giornata (colazione, spuntini, pranzo, post-allenamento, cena) con quantità in grammi/ml obbligatorie e valori nutrizionali facoltativi.
-- **Consigli automatici**, deterministici e sempre spiegabili: confrontano quello che hai mangiato con il tuo piano e suggeriscono cosa aggiungere, mai cosa "evitare" — nessun cibo viene mai bollato come cattivo.
-- **Scanner del codice a barre**: inquadra il prodotto e i valori si compilano da soli, cercando su due database alimentari pubblici (Open Food Facts e USDA FoodData Central) in cascata.
-- **Scheda del prodotto** in stile Yuka dopo ogni inserimento: energia, proteine, fibre, grassi, zuccheri, sale e grado di lavorazione — con giudizi tarati sulla massa (un cibo calorico è un pregio, non un difetto).
-- **Sezione allenamento**: sessioni Spinta/Trazione, storico "ultima volta" per ogni esercizio, avviso di progressione quando è il momento di aumentare il carico.
-- **Promemoria** solo per gli spuntini (mai per i pasti principali), orari e giorni scelti liberamente, con modalità dinamica legata alla fine dell'allenamento.
-- **Peso settimanale** con la regola: se dopo 3-4 settimane il peso non si muove, l'app te lo dice.
-- **Backup** su file, quando vuoi, dove vuoi.
+- **Food diary** organised by moments of the day (breakfast, snacks, lunch, post-workout, dinner), with quantities in grams/ml required and nutritional values optional.
+- **Automatic advice**, deterministic and always explainable: it compares what you ate against your plan and suggests what to add, never what to "avoid" — no food is ever labelled as bad.
+- **Barcode scanner**: point at the product and the values fill themselves in, querying two public food databases (Open Food Facts and USDA FoodData Central) in sequence.
+- **Product card** in the style of Yuka after every entry: energy, protein, fibre, fat, sugar, salt and degree of processing — with judgements calibrated for bulking (a calorie-dense food is a plus here, not a flaw).
+- **Training section**: Push/Pull sessions, a "last time" history for every exercise, and a progression prompt when it's time to add load.
+- **Reminders** for snacks only (never for main meals), on times and days you pick, with a dynamic mode tied to the end of the workout.
+- **Weekly weigh-in** with one rule: if the weight hasn't moved after 3-4 weeks, the app tells you.
+- **Backup** to a file, whenever you want, wherever you want.
 
 ## Download
 
-Vai alla sezione **[Releases](../../releases)** di questo repository e scarica l'ultimo file `.apk`.
+Go to the **[Releases](../../releases)** section of this repository and download the latest `.apk`.
 
-Non essendo distribuita tramite Play Store, Android chiederà di **consentire l'installazione da questa app** (di solito il browser): è normale per le app fuori dagli store ufficiali, va confermato una volta sola.
+Since it isn't distributed through the Play Store, Android will ask you to **allow installation from this app** (usually the browser): that's normal for apps outside the official stores, and you only confirm it once.
 
-Gli aggiornamenti si installano sopra la versione precedente, senza perdere i dati.
+Updates install over the previous version without losing your data.
 
 ## Privacy
 
-Surplus funziona interamente offline. L'unica eccezione è la ricerca facoltativa di un prodotto (per nome o codice a barre): in quel caso parte una richiesta ai database alimentari pubblici citati sopra, contenente solo il testo cercato o il codice del prodotto — **nessun dato personale, nessuna traccia dell'utente**. Tutto il resto (diario, pesate, allenamenti, impostazioni) resta salvato solo sul telefono.
+Surplus runs entirely offline. The only exception is the optional product lookup (by name or barcode): in that case a request goes to the public food databases named above, containing only the search text or the product code — **no personal data, nothing that identifies the user**. Everything else (diary, weigh-ins, workouts, settings) is stored on the phone alone.
 
-## Requisiti
+## Requirements
 
-Android 8.0 (API 26) o superiore.
+Android 8.0 (API 26) or later.
 
-## Avvertenza
+## Disclaimer
 
-Surplus è un diario personale, non un servizio medico e non sostituisce il parere di un medico o di un dietista. I target proposti sono stime da formule standard e non tengono conto di storia clinica, allergie o terapie in corso. Se hai meno di 18 anni, parlane con un adulto responsabile e con il tuo medico prima di seguire una dieta ipercalorica.
+Surplus is a personal diary, not a medical service, and it doesn't replace advice from a doctor or a dietitian. The targets it proposes are estimates from standard formulas and don't account for medical history, allergies or ongoing treatment. If you're under 18, talk to a responsible adult and to your doctor before following a hypercaloric diet.
 
-## Codice sorgente
+## Source code
 
-Questo repository contiene solo la pagina di presentazione e le release compilate: il codice sorgente non è pubblicato. Per segnalazioni o domande, apri una [Issue](../../issues).
+This repository holds only the landing page and the compiled releases: the source code is not published. For reports or questions, open an [Issue](../../issues).
 
-## Licenza
+## Licence
 
-Progetto personale, tutti i diritti riservati. L'app è distribuita gratuitamente per uso personale; non è consentito redistribuirla con modifiche o utilizzarla come base per altri progetti senza autorizzazione.
+Personal project, all rights reserved. The app is distributed free of charge for personal use; redistributing it with modifications, or using it as the basis for other projects, is not permitted without authorisation.
