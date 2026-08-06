@@ -11,9 +11,9 @@ No account, no ads, no subscription. Your data stays on the phone.
 ## What it does
 
 - **Food diary** organised by moments of the day (breakfast, snacks, lunch, post-workout, dinner), with quantities in grams/ml required and nutritional values optional.
-- **Automatic advice**, deterministic and always explainable: it compares what you ate against your plan and suggests what to add, never what to "avoid" — no food is ever labelled as bad.
+- **Automatic advice**, deterministic and always explainable: it compares what you ate against your plan and suggests what to add rather than what to "avoid", since no food is ever labelled as bad.
 - **Barcode scanner**: point at the product and the values fill themselves in, querying two public food databases (Open Food Facts and USDA FoodData Central) in sequence.
-- **Product card** in the style of Yuka after every entry: energy, protein, fibre, fat, sugar, salt and degree of processing — with judgements calibrated for bulking (a calorie-dense food is a plus here, not a flaw).
+- **Product card** in the style of Yuka after every entry: energy, protein, fibre, fat, sugar, salt and degree of processing, with judgements calibrated for bulking (a calorie-dense food counts in its favour here).
 - **Training section**: Push/Pull sessions, a "last time" history for every exercise, and a progression prompt when it's time to add load.
 - **Reminders** for snacks only (never for main meals), on times and days you pick, with a dynamic mode tied to the end of the workout.
 - **Weekly weigh-in** with one rule: if the weight hasn't moved after 3-4 weeks, the app tells you.
@@ -29,7 +29,7 @@ Updates install over the previous version without losing your data.
 
 ## Privacy
 
-Surplus runs entirely offline. The only exception is the optional product lookup (by name or barcode): in that case a request goes to the public food databases named above, containing only the search text or the product code — **no personal data, nothing that identifies the user**. Everything else (diary, weigh-ins, workouts, settings) is stored on the phone alone.
+Surplus runs entirely offline. The only exception is the optional product lookup (by name or barcode): in that case a request goes to the public food databases named above, containing only the search text or the product code, with **no personal data and nothing that identifies the user**. Everything else (diary, weigh-ins, workouts, settings) is stored on the phone alone.
 
 ## Requirements
 
