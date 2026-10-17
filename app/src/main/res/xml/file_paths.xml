@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Cartella privata dell'app dove finiscono gli scatti temporanei:
+         la fotocamera ci scrive dentro, nessun'altra app può leggerla. -->
+    <cache-path name="foto" path="foto/" />
+</paths>

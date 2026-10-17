@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- La chiave dell'utente vive nelle impostazioni: la si tiene fuori dal backup
+     automatico di Android, così non finisce su nessun cloud. Il diario si salva
+     con l'export dell'app, che è esplicito e sotto controllo dell'utente. -->
+<full-backup-content>
+    <exclude domain="file" path="datastore/settings.preferences_pb" />
+</full-backup-content>

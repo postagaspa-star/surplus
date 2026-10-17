@@ -1,0 +1,13 @@
+.gradle/
+build/
+app/build/
+local.properties
+keystore.properties
+.idea/
+*.iml
+.kotlin/
+captures/
+site/*.apk
+
+# Local Netlify folder
+.netlify
