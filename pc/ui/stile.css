@@ -1,0 +1,431 @@
+/*
+ * L'aspetto di Surplus sul computer: identico all'app Android.
+ *
+ * I colori non sono scelti qui: sono quelli letti dai pixel delle schermate vere
+ * (Material 3 con il verde #2E7D32 dell'app). Le misure sono in px e valgono
+ * come i dp del telefono, perché lo schermo disegnato è largo 412 come un
+ * telefono Android e viene poi ingrandito o rimpicciolito per stare nella finestra.
+ */
+
+:root {
+  --sfondo: #FEF7FF;
+  --riquadro: #E6E0E9;
+  --riquadro-secondario: #E8DEF8;
+  --riquadro-primario: #EADDFF;
+  --su-riquadro-secondario: #1D192B;
+  --su-riquadro-primario: #21005D;
+  --testo: #1D1B20;
+  --testo-tenue: #49454F;
+  --verde: #2E7D32;
+  --verde-scuro: #14532D;
+  --su-verde: #FFFFFF;
+  --arancio: #EF6C00;
+  --errore: #B3261E;
+  --acqua: #0277BD;
+  --bordo: #79747E;
+  --barra: #F3EDF7;
+  --cornice: #1C1B1F;
+  --ombra: rgba(28, 27, 31, .35);
+
+  --schermo-largo: 412px;
+  --schermo-alto: 915px;
+  --zoom: 1;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --sfondo: #141218;
+    --riquadro: #36343B;
+    --riquadro-secondario: #4A4458;
+    --riquadro-primario: #4F378B;
+    --su-riquadro-secondario: #E8DEF8;
+    --su-riquadro-primario: #EADDFF;
+    --testo: #E6E0E9;
+    --testo-tenue: #CAC4D0;
+    --verde: #81C784;
+    --su-verde: #0B3D0E;
+    --acqua: #4FC3F7;
+    --bordo: #938F99;
+    --barra: #211F26;
+    --ombra: rgba(0, 0, 0, .55);
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #D7D3DC;
+  font-family: Roboto, "Segoe UI", system-ui, sans-serif;
+  color: var(--testo);
+  /* Un'app non è una pagina web: niente testo selezionabile a caso col mouse. */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  html, body { background: #0D0B10; }
+}
+
+input, textarea { user-select: text; -webkit-user-select: text; }
+
+/* ---- il telefono sulla scrivania ---- */
+
+.scrivania {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--cornice);
+}
+
+.telefono {
+  width: var(--schermo-largo);
+  height: var(--schermo-alto);
+  padding: 14px;
+  border-radius: 46px;
+  background: var(--cornice);
+  box-shadow: 0 0 0 1px #000, 0 18px 40px var(--ombra);
+  transform: scale(var(--zoom));
+  transform-origin: center;
+  flex-shrink: 0;
+}
+
+.schermo {
+  width: 100%;
+  height: 100%;
+  border-radius: 32px;
+  overflow: hidden;
+  background: var(--sfondo);
+  display: flex;
+  flex-direction: column;
+}
+
+.barra-stato {
+  flex-shrink: 0;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  font-size: 12px;
+  color: var(--testo);
+}
+
+.barra-stato .segnali { letter-spacing: 1px; }
+
+.pagina {
+  flex-grow: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0 16px 16px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--bordo) transparent;
+}
+
+.pagina::-webkit-scrollbar { width: 8px; }
+.pagina::-webkit-scrollbar-thumb { background: var(--bordo); border-radius: 4px; }
+.pagina::-webkit-scrollbar-track { background: transparent; }
+
+.avvio { padding: 40px 0; text-align: center; color: var(--testo-tenue); }
+
+/* ---- barra in basso ---- */
+
+.barra-basso {
+  flex-shrink: 0;
+  height: 76px;
+  background: var(--barra);
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding-bottom: 6px;
+}
+
+.voce-barra {
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--testo);
+  width: 92px;
+  padding: 0;
+  cursor: pointer;
+  text-align: center;
+}
+
+.voce-barra .pillola {
+  width: 58px;
+  height: 30px;
+  margin: 0 auto 4px;
+  border-radius: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color .18s ease;
+}
+
+.voce-barra[aria-current="page"] .pillola { background: var(--riquadro-secondario); }
+.voce-barra .etichetta { font-size: 12px; }
+.voce-barra svg { width: 20px; height: 20px; fill: var(--testo); }
+
+/* ---- pezzi comuni ---- */
+
+.titolo-schermata {
+  font-size: 22px;
+  font-weight: 700;
+  padding: 10px 0 10px;
+}
+
+.intestazione-giorno {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 0 10px;
+}
+
+.intestazione-giorno .giorno { font-size: 22px; font-weight: 700; }
+
+.freccia {
+  border: 0;
+  background: none;
+  color: var(--testo-tenue);
+  font-size: 22px;
+  line-height: 1;
+  padding: 6px 10px;
+  cursor: pointer;
+  border-radius: 20px;
+}
+
+.freccia:disabled { color: color-mix(in srgb, var(--testo-tenue) 35%, transparent); cursor: default; }
+
+.riquadro {
+  background: var(--riquadro);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+}
+
+.riquadro.consigli { background: var(--riquadro-secondario); color: var(--su-riquadro-secondario); }
+.riquadro.acceso { background: var(--riquadro-primario); color: var(--su-riquadro-primario); }
+
+.riga { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.riga-alto { align-items: flex-start; }
+.colonna { display: flex; flex-direction: column; }
+.cresci { flex-grow: 1; min-width: 0; }
+
+.titolo-riquadro { font-size: 17px; font-weight: 700; }
+.sottotitolo { font-size: 13px; color: var(--testo-tenue); margin-top: 2px; }
+.testo { font-size: 15px; }
+.piccolo { font-size: 13px; color: var(--testo-tenue); }
+.minuscolo { font-size: 12px; color: var(--testo-tenue); }
+.verde { color: var(--verde); }
+.arancio { color: var(--arancio); }
+.rosso { color: var(--errore); }
+.grassetto { font-weight: 500; }
+
+/* ---- barre di avanzamento ---- */
+
+.obiettivo + .obiettivo { margin-top: 12px; }
+.obiettivo .riga { align-items: baseline; }
+.obiettivo .nome { font-size: 15px; }
+.obiettivo .valore { font-size: 14px; color: var(--testo-tenue); }
+.obiettivo .valore.ok { color: var(--verde); }
+
+.barra {
+  height: 10px;
+  border-radius: 5px;
+  background: var(--riquadro-secondario);
+  margin-top: 6px;
+  overflow: hidden;
+}
+
+.barra > span {
+  display: block;
+  height: 100%;
+  border-radius: 5px;
+  background: var(--verde);
+  transition: width .3s ease;
+}
+
+.barra > span.oltre { background: var(--arancio); }
+.barra > span.acqua { background: var(--acqua); }
+
+/* ---- pulsanti ---- */
+
+.pulsante {
+  font: inherit;
+  font-size: 15px;
+  border-radius: 22px;
+  padding: 11px 18px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+}
+
+.pulsante.pieno { background: var(--verde); color: var(--su-verde); border-color: var(--verde); font-weight: 500; }
+.pulsante.contorno { background: transparent; color: var(--verde); border-color: var(--bordo); }
+.pulsante.piatto { background: transparent; color: var(--verde); border-color: transparent; padding: 10px 12px; }
+.pulsante:disabled { opacity: .45; cursor: default; }
+
+/* Il mouse c'è: un ritorno all'hover rende l'app meno "telefono dietro un vetro". */
+@media (hover: hover) {
+  .pulsante:not(:disabled):hover { filter: brightness(.96); }
+  .pulsante.contorno:not(:disabled):hover,
+  .pulsante.piatto:not(:disabled):hover { background: color-mix(in srgb, var(--verde) 10%, transparent); }
+  .voce-barra:hover .pillola { background: color-mix(in srgb, var(--riquadro-secondario) 60%, transparent); }
+  .riquadro.toccabile:hover { filter: brightness(.985); }
+}
+
+.pulsante:focus-visible, .voce-barra:focus-visible, .freccia:focus-visible, .riquadro.toccabile:focus-visible {
+  outline: 2px solid var(--verde);
+  outline-offset: 2px;
+}
+
+.riquadro.toccabile { cursor: pointer; }
+
+.pulsanti { display: flex; gap: 10px; }
+.pulsanti > * { flex: 1 1 0; }
+
+.icona { width: 18px; height: 18px; fill: currentColor; flex-shrink: 0; }
+.icona-piccola { width: 16px; height: 16px; fill: currentColor; }
+
+/* ---- voci del diario ---- */
+
+.voce { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; padding: 6px 0; }
+.voce .nome { font-size: 15px; }
+.voce .dettaglio { font-size: 13px; color: var(--testo-tenue); margin-top: 2px; }
+
+.togli {
+  border: 0;
+  background: none;
+  color: var(--testo-tenue);
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 14px;
+  line-height: 1;
+}
+
+@media (hover: hover) { .togli:hover { color: var(--errore); } }
+
+/* ---- campi ---- */
+
+.campo { display: block; margin-bottom: 10px; }
+.campo > span { display: block; font-size: 12px; color: var(--testo-tenue); margin-bottom: 4px; }
+
+.campo input, .campo select, .campo textarea {
+  width: 100%;
+  font: inherit;
+  font-size: 15px;
+  color: var(--testo);
+  background: transparent;
+  border: 1px solid var(--bordo);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.campo input:focus, .campo select:focus, .campo textarea:focus {
+  outline: none;
+  border-color: var(--verde);
+  box-shadow: inset 0 0 0 1px var(--verde);
+}
+
+.campi { display: flex; gap: 8px; }
+.campi > * { flex: 1 1 0; }
+
+/* ---- scelte a pillola ---- */
+
+.scelte { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+
+.scelta {
+  font: inherit;
+  font-size: 13px;
+  border: 1px solid var(--bordo);
+  border-radius: 8px;
+  padding: 7px 12px;
+  background: transparent;
+  color: var(--testo);
+  cursor: pointer;
+  min-height: 36px;
+}
+
+.scelta[aria-pressed="true"] {
+  background: var(--riquadro-secondario);
+  border-color: transparent;
+  color: var(--su-riquadro-secondario);
+}
+
+/* ---- finestrella (i dialoghi dell'app) ---- */
+
+.velo {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, .32);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  z-index: 10;
+}
+
+.finestrella {
+  background: var(--barra);
+  color: var(--testo);
+  border-radius: 28px;
+  padding: 20px;
+  width: 100%;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .3);
+}
+
+.finestrella h2 { font-size: 20px; font-weight: 400; margin: 0 0 12px; }
+.finestrella .contenuto { overflow-y: auto; flex-grow: 1; }
+.finestrella .azioni { display: flex; justify-content: flex-end; gap: 8px; padding-top: 12px; }
+
+/* ---- scheda del prodotto (stile Yuka) ---- */
+
+.scheda-prodotto { background: #F7F6F2; color: #1A1A1A; border-radius: 20px; }
+.scheda-prodotto .riga-scheda { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid #E6E3DC; }
+.scheda-prodotto .riga-scheda:first-of-type { border-top: 0; }
+.scheda-prodotto .pallino { width: 10px; height: 10px; border-radius: 5px; flex-shrink: 0; }
+.scheda-prodotto .pallino.buono { background: #2E7D32; }
+.scheda-prodotto .pallino.neutro { background: #9E9E9E; }
+.scheda-prodotto .tempo { height: 4px; background: #E6E3DC; border-radius: 2px; overflow: hidden; margin-top: 12px; }
+.scheda-prodotto .tempo > span { display: block; height: 100%; background: #2E7D32; }
+
+/* ---- avvisi ---- */
+
+.avvisi {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.avviso {
+  background: #322F35;
+  color: #F5EFF7;
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 14px;
+  max-width: 360px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .35);
+}
+
+.avviso.male { background: var(--errore); color: #FFFFFF; }
+
+/* Chi chiede meno animazioni non le riceve. */
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}

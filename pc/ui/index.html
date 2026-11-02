@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <!-- Solo file di questa cartella e solo chiamate a questa origine: niente internet dentro la finestra. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'">
+  <title>Surplus</title>
+  <link rel="stylesheet" href="stile.css">
+</head>
+<body>
+  <!-- La scrivania attorno al telefono: la cornice e lo schermo li disegna il CSS. -->
+  <div class="scrivania">
+    <div class="telefono" id="telefono">
+      <div class="schermo">
+        <div class="barra-stato"><span id="orologio">—</span><span class="segnali" aria-hidden="true">▴ ▮</span></div>
+        <main id="app" class="pagina" aria-busy="true">
+          <p class="avvio">Surplus si sta aprendo…</p>
+        </main>
+        <nav id="barra" class="barra-basso" aria-label="Sezioni"></nav>
+      </div>
+    </div>
+  </div>
+  <div id="avvisi" class="avvisi" role="status" aria-live="polite"></div>
+  <noscript><p class="avvio">Per funzionare Surplus ha bisogno di JavaScript.</p></noscript>
+  <script src="logica.js"></script>
+  <script src="api.js"></script>
+  <script src="schermate.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

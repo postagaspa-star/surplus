@@ -11,3 +11,11 @@ site/*.apk
 
 # Local Netlify folder
 .netlify
+
+# Programma per il computer: il pacchetto pesa 147 MB, si ricostruisce con
+# pc/prove/crea-pacchetto.ps1 e non va versionato.
+pc/dist/
+pc/**/bin/
+pc/**/obj/
+# Cartella di lavoro dell'editor, non del progetto.
+.claude/

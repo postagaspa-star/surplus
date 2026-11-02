@@ -34,9 +34,15 @@ No account, no ads, no subscription. Your data stays on the phone.
 - **Backup** to a file, whenever you want, wherever you want.
 - **Guided first run** that works your targets out from your own numbers with standard formulas; they stay editable by hand.
 
+## On the computer too
+
+There is a Windows version of the same app, in `pc/`: same screens, same colours, same diary file. Its window is shaped like a phone — the app was built for a tall, narrow screen, and squeezing it into a desktop layout would have made it a different app.
+
+It is a native .NET program hosting the interface in a WebView2 (the same architecture as my other desktop apps), with no server and no account: the diary lives in a file on the computer, in the very format the phone writes, so a backup moves between the two.
+
 ## Download
 
-Go to the **[Releases](../../releases)** section of this repository and download the latest `.apk`.
+Go to the **[Releases](../../releases)** section of this repository and download the latest `.apk` for the phone, or `surplus-pc.zip` for Windows (unzip it anywhere and run `Surplus.exe` — no installer, no administrator).
 
 Since it isn't distributed through the Play Store, Android will ask you to **allow installation from this app** (usually the browser): that's normal for apps outside the official stores, and you only confirm it once.
 
