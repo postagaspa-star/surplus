@@ -127,6 +127,19 @@ public class ReteTest
     }
 
     [Fact]
+    public void Gli_schemi_mandati_al_servizio_si_riescono_a_scrivere()
+    {
+        // Gli elenchi di valori ammessi ("enum") nascevano come valori che le
+        // opzioni di scrittura del programma non sapevano serializzare: la
+        // richiesta partiva solo se qualcuno la scriveva con le opzioni di serie.
+        foreach (var schema in new[] { Ai.SchemaFotoClaude(), Ai.SchemaFotoGemini(), Ai.SchemaEsercizioClaude(), Ai.SchemaEsercizioGemini() })
+        {
+            var testo = Surplus.Nucleo.Json.Scrivi(schema);
+            Assert.NotNull(Surplus.Nucleo.Json.Oggetto(testo));
+        }
+    }
+
+    [Fact]
     public void Messaggi_di_errore_che_dicono_cosa_fare()
     {
         Assert.Contains("Chiave non valida", Ai.Messaggio(new ErroreServizio(401, "")));

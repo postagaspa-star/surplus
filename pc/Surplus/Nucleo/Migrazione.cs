@@ -93,7 +93,9 @@ public static class Migrazione
             var dentro = fatti.Count > 0
                 ? fatti.Contains(id)
                 : Json.Booleano(e?[tipo == "SPINTA" ? "spinta" : "trazione"]) == true;
-            if (dentro) ids.Add(id);
+            // (JsonNode)id e non ids.Add(id): la seconda forma crea un valore che
+            // si scrive solo con opzioni che hanno il risolutore dei tipi.
+            if (dentro) ids.Add((JsonNode)id);
         }
 
         return new JsonObject

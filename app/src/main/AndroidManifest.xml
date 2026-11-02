@@ -15,6 +15,10 @@
     <!-- Fotocamera per il codice a barre e per la foto del piatto. Gli scatti
          restano nella cache privata dell'app finché non li si usa. -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- L'app si aggiorna da sola prendendo la versione nuova dal NAS di casa.
+         Android accetta solo un aggiornamento firmato con la stessa chiave di
+         questa app, quindi nessun altro puo' sostituirla. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <application
@@ -22,6 +26,7 @@
         android:allowBackup="true"
         android:fullBackupContent="@xml/backup_rules"
         android:dataExtractionRules="@xml/data_extraction_rules"
+        android:networkSecurityConfig="@xml/sicurezza_rete"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:label="@string/app_name"
@@ -42,6 +47,14 @@
         <receiver
             android:name=".notify.ReminderReceiver"
             android:exported="false" />
+
+        <receiver
+            android:name=".aggiornamento.AggiornamentoReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="it.gaspa.surplus.ESITO_INSTALLAZIONE" />
+            </intent-filter>
+        </receiver>
 
         <receiver
             android:name=".notify.BootReceiver"

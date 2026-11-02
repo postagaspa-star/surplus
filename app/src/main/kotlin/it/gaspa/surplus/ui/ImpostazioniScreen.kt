@@ -53,6 +53,7 @@ import it.gaspa.surplus.data.AiProvider
 import it.gaspa.surplus.data.ReminderCfg
 import it.gaspa.surplus.data.ReminderKey
 import it.gaspa.surplus.data.Settings
+import it.gaspa.surplus.data.SyncState
 import java.util.Locale
 
 private val dayLetters = listOf("L", "M", "M", "G", "V", "S", "D")
@@ -78,6 +79,11 @@ fun ImpostazioniScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
     var aiModel by remember(settings) { mutableStateOf(settings.aiModel) }
     var chiaveVisibile by remember { mutableStateOf(false) }
     var pickerFor by remember { mutableStateOf<ReminderKey?>(null) }
+    var nasIndirizzo by remember(settings) { mutableStateOf(settings.nasIndirizzo) }
+    var nasCodice by remember { mutableStateOf("") }
+    var nasStacca by remember { mutableStateOf(false) }
+    val statoNas by vm.statoNas.collectAsState()
+    val nasInCorso by vm.nasInCorso.collectAsState()
 
     val permLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
@@ -196,10 +202,95 @@ fun ImpostazioniScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
 
         HorizontalDivider()
 
+        Text("Diario sul NAS di casa", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        if (!settings.nasAbbinato) {
+            Text(
+                "Il diario può stare anche sul NAS: così il telefono e il computer vedono le stesse cose, " +
+                    "e quello che scrivi non vive su un solo apparecchio. Niente account e niente internet: " +
+                    "i dati restano in casa.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            OutlinedTextField(
+                value = nasIndirizzo,
+                onValueChange = { nasIndirizzo = it },
+                label = { Text("Indirizzo del NAS") },
+                placeholder = { Text("nome-del-nas:8600") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            OutlinedTextField(
+                value = nasCodice,
+                onValueChange = { nasCodice = it.filter { c -> c.isDigit() }.take(8) },
+                label = { Text("Codice del NAS") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Text(
+                "Il codice lo dà il NAS e vale un quarto d'ora.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            OutlinedButton(
+                onClick = {
+                    vm.abbinaNas(nasIndirizzo, nasCodice) { errore ->
+                        Toast.makeText(context, errore ?: "Telefono abbinato al NAS", Toast.LENGTH_LONG).show()
+                        if (errore == null) nasCodice = ""
+                    }
+                },
+                enabled = !nasInCorso && nasCodice.length == 8,
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text(if (nasInCorso) "Sto abbinando…" else "Abbina questo telefono") }
+        } else {
+            Text(
+                "Abbinato a ${settings.nasIndirizzo}.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                when (val st = statoNas) {
+                    is SyncState.Error -> st.message
+                    else -> if (settings.nasUltima > 0) "Ultima sincronizzazione " + oraDi(settings.nasUltima) + "."
+                    else "Non si è ancora sincronizzato."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = if (statoNas is SyncState.Error) MaterialTheme.colorScheme.error
+                else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                "Si sincronizza da solo: quando apri l'app, dopo ogni modifica e quando la lasci. " +
+                    "Quello che scrivi senza NAS acceso parte alla prima occasione.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = {
+                        vm.sincronizzaNas { errore ->
+                            Toast.makeText(context, errore ?: "Sincronizzato col NAS", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    enabled = !nasInCorso,
+                    modifier = Modifier.weight(1f),
+                ) { Text(if (nasInCorso) "Attendi…" else "Sincronizza adesso") }
+                TextButton(
+                    onClick = { nasStacca = true },
+                    modifier = Modifier.weight(1f),
+                ) { Text("Stacca") }
+            }
+        }
+
+        HorizontalDivider()
+
         Text("Backup", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         Text(
-            "I dati vivono solo su questo telefono: senza backup, se lo perdi perdi tutto. " +
-                "Il file contiene diario, allenamenti, peso e dispensa.",
+            if (settings.nasAbbinato)
+                "Il diario sta su questo telefono e sul NAS di casa. Il file del backup contiene " +
+                    "diario, allenamenti, peso e dispensa, ed è lo stesso del programma per il computer."
+            else
+                "I dati vivono solo su questo telefono: senza backup, se lo perdi perdi tutto. " +
+                    "Il file contiene diario, allenamenti, peso e dispensa.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -347,11 +438,34 @@ fun ImpostazioniScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
         ) { Text("Salva impostazioni") }
 
         Text(
-            "Surplus v2.6.0 — dati salvati solo sul telefono",
+            "Surplus v" + versioneApp(context) +
+                if (settings.nasAbbinato) " — diario su questo telefono e sul NAS"
+                else " — dati salvati solo sul telefono",
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
+        )
+    }
+
+    if (nasStacca) {
+        AlertDialog(
+            onDismissRequest = { nasStacca = false },
+            title = { Text("Staccare questo telefono?") },
+            text = {
+                Text(
+                    "Il diario resta sul telefono e resta anche sul NAS, ma non si aggiornano " +
+                        "più a vicenda. Per rimetterli insieme serve un codice nuovo."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    vm.staccaNas()
+                    nasStacca = false
+                    Toast.makeText(context, "Telefono staccato dal NAS", Toast.LENGTH_SHORT).show()
+                }) { Text("Stacca") }
+            },
+            dismissButton = { TextButton(onClick = { nasStacca = false }) { Text("Annulla") } },
         )
     }
 
@@ -459,3 +573,26 @@ private fun ReminderRow(
         }
     }
 }
+
+/** "alle 20:31" se è di oggi, altrimenti "il 02/11 alle 20:31". */
+private fun oraDi(quando: Long): String {
+    val d = java.util.Calendar.getInstance().apply { timeInMillis = quando }
+    val oggi = java.util.Calendar.getInstance()
+    val ora = String.format(
+        Locale.ROOT, "%02d:%02d",
+        d.get(java.util.Calendar.HOUR_OF_DAY), d.get(java.util.Calendar.MINUTE),
+    )
+    val stessoGiorno = d.get(java.util.Calendar.YEAR) == oggi.get(java.util.Calendar.YEAR) &&
+        d.get(java.util.Calendar.DAY_OF_YEAR) == oggi.get(java.util.Calendar.DAY_OF_YEAR)
+    if (stessoGiorno) return "alle $ora"
+    val giorno = String.format(
+        Locale.ROOT, "%02d/%02d",
+        d.get(java.util.Calendar.DAY_OF_MONTH), d.get(java.util.Calendar.MONTH) + 1,
+    )
+    return "il $giorno alle $ora"
+}
+
+/** La versione vera, chiesta ad Android: scritta a mano finiva per restare indietro. */
+private fun versioneApp(context: android.content.Context): String = runCatching {
+    context.packageManager.getPackageInfo(context.packageName, 0).versionName.orEmpty()
+}.getOrDefault("")

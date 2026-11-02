@@ -101,7 +101,25 @@ const impostazioni = {
   aiFornitore: 'GEMINI', aiModello: '', aiAttiva: false,
 };
 
-const TIPI = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8' };
+/** Lo stato della sincronizzazione col NAS: nel banco si parte non abbinati. */
+let nas = {
+  abbinato: false,
+  indirizzo: '',
+  ultima: null,
+  errore: null,
+  revisione: 0,
+  inCorso: false,
+  versioneDati: 1,
+  aggiornamento: { versione: 'banco', nuova: null, pronta: false, errore: null },
+};
+
+const TIPI = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.woff2': 'font/woff2',
+  '.txt': 'text/plain; charset=utf-8',
+};
 
 http.createServer((req, res) => {
   const url = new URL(req.url, 'http://127.0.0.1');
@@ -114,6 +132,18 @@ http.createServer((req, res) => {
       else if (url.pathname === '/locale/salva') risposta = { ok: true, versione: 2 };
       else if (url.pathname === '/locale/cerca') risposta = { ok: true, risultati: [] };
       else if (url.pathname === '/locale/impostazioni') risposta = { ok: true, impostazioni: impostazioni };
+      else if (url.pathname === '/locale/nas') risposta = { ok: true, stato: nas };
+      else if (url.pathname === '/locale/nas/abbina') {
+        // Nel banco il NAS dice sempre sì, così si vedono tutte e due le facce della scheda.
+        nas = Object.assign({}, nas, { abbinato: true, indirizzo: '192.168.1.20:8600', ultima: Date.now(), errore: null, revisione: 3 });
+        risposta = { ok: true, cambiato: false, stato: nas };
+      } else if (url.pathname === '/locale/nas/sincronizza') {
+        nas = Object.assign({}, nas, { ultima: Date.now(), errore: null, revisione: (nas.revisione || 0) + 1 });
+        risposta = { ok: true, cambiato: false, stato: nas };
+      } else if (url.pathname === '/locale/nas/stacca') {
+        nas = Object.assign({}, nas, { abbinato: false, ultima: null, errore: null });
+        risposta = { ok: true, stato: nas };
+      }
       else risposta = { errore: 'Nel banco di prova questa funzione non c\'è.' };
       res.writeHead(risposta.errore ? 422 : 200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify(risposta));

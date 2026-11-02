@@ -15,12 +15,14 @@ public sealed class Ponte
     public const string Origine = "https://" + Host;
 
     private readonly Motore.Motore motore;
+    private readonly Motore.Sincronizzazione? sincronizzazione;
     private readonly Rete.Alimenti alimenti;
     private readonly Rete.Ai ai;
 
-    public Ponte(Motore.Motore motore)
+    public Ponte(Motore.Motore motore, Motore.Sincronizzazione? sincronizzazione = null)
     {
         this.motore = motore;
+        this.sincronizzazione = sincronizzazione;
         alimenti = new Rete.Alimenti();
         ai = new Rete.Ai();
     }
@@ -109,6 +111,10 @@ public sealed class Ponte
             "foto" => ("POST", () => FotoAsync(o)),
             "esercizio" => ("POST", () => EsercizioAsync(o)),
             "scegli-immagini" => ("POST", ScegliImmaginiAsync),
+            "nas" => ("GET", () => Task.FromResult(StatoNas())),
+            "nas/abbina" => ("POST", () => AbbinaNasAsync(o)),
+            "nas/sincronizza" => ("POST", SincronizzaNasAsync),
+            "nas/stacca" => ("POST", () => Task.FromResult(sincronizzazione?.Stacca() ?? StatoNas())),
             "esporta" => ("POST", EsportaAsync),
             "importa" => ("POST", ImportaAsync),
             _ => null,
@@ -117,6 +123,38 @@ public sealed class Ponte
         if (rotta.Value.Metodo != metodo) return (405, new JsonObject { ["errore"] = "Richiesta sconosciuta.", ["codice"] = "non_valido" });
         var esito = await rotta.Value.Azione().ConfigureAwait(false);
         return (esito["errore"] != null ? 422 : 200, esito);
+    }
+
+    /// <summary>Lo stato della sincronizzazione col NAS. Senza NAS: "non abbinato", e basta.</summary>
+    private JsonObject StatoNas() => new()
+    {
+        ["ok"] = true,
+        ["stato"] = sincronizzazione?.PerLaPagina() ?? new JsonObject
+        {
+            ["abbinato"] = false,
+            ["indirizzo"] = "",
+            ["versioneDati"] = motore.VersioneDati,
+        },
+    };
+
+    private Task<JsonObject> AbbinaNasAsync(JsonObject? o)
+    {
+        if (sincronizzazione == null) return Task.FromResult(StatoNas());
+        return sincronizzazione.AbbinaAsync(Json.Testo(o?["indirizzo"]), Json.Testo(o?["codice"]));
+    }
+
+    private Task<JsonObject> SincronizzaNasAsync()
+    {
+        if (sincronizzazione == null) return Task.FromResult(StatoNas());
+        if (!sincronizzazione.Abbinato)
+        {
+            return Task.FromResult(new JsonObject
+            {
+                ["errore"] = "Questo computer non è abbinato al NAS.",
+                ["codice"] = "non_abbinato",
+            });
+        }
+        return sincronizzazione.AdessoAsync("a mano");
     }
 
     private static string Valore(string query, string nome)

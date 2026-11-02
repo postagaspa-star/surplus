@@ -89,6 +89,21 @@ public class MigrazioneTest
     }
 
     [Fact]
+    public void Il_diario_migrato_si_riesce_a_scrivere_sul_disco()
+    {
+        // Non basta che la migrazione produca l'albero giusto: deve passare da
+        // Json.Scrivi, cioè dalle opzioni vere del programma. Con ToJsonString()
+        // (opzioni di serie) questo caso passava e il programma invece si chiudeva
+        // da solo al primo avvio con un diario vecchio che aveva allenamenti.
+        var d = Migrato();
+        var testo = Json.Scrivi(d);
+        var riletto = Json.Oggetto(testo);
+        Assert.NotNull(riletto);
+        var ids = Json.Lista(Json.Lista(riletto!["routines"]).First(r => Json.Testo(r?["id"]) == "spinta")!["exerciseIds"]);
+        Assert.Contains("shoulder-press", ids.Select(x => Json.Testo(x)));
+    }
+
+    [Fact]
     public void Un_diario_gia_nuovo_non_viene_toccato()
     {
         var d = Diario.Nuovo();

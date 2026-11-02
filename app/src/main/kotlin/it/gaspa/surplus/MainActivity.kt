@@ -24,8 +24,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import it.gaspa.surplus.aggiornamento.Aggiornatore
+import it.gaspa.surplus.aggiornamento.AppInPrimoPiano
+import it.gaspa.surplus.data.AppStore
 import it.gaspa.surplus.data.SettingsRepo
 import it.gaspa.surplus.notify.ReminderScheduler
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import it.gaspa.surplus.ui.AllenamentoScreen
 import it.gaspa.surplus.ui.AppViewModel
 import it.gaspa.surplus.ui.ImpostazioniScreen
@@ -48,6 +54,25 @@ class MainActivity : ComponentActivity() {
             SurplusTheme {
                 SurplusRoot()
             }
+        }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        AppInPrimoPiano.visibile = true
+        // Appena si apre: si prende dal NAS quello che è stato scritto altrove.
+        lifecycleScope.launch { runCatching { AppStore.get(applicationContext).sincronizzaOra() } }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        AppInPrimoPiano.visibile = false
+        // Quando lasci l'app: l'ultima sincronizzazione e, se c'è, l'aggiornamento.
+        // Qui l'installazione non dà fastidio, perché l'app non è più sullo schermo.
+        val contesto = applicationContext
+        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+            runCatching { AppStore.get(contesto).sincronizzaOra() }
+            runCatching { Aggiornatore(contesto).controlla(inSottofondo = true) }
         }
     }
 }

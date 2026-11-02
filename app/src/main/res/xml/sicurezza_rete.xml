@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Il NAS di casa risponde in http: è sulla rete locale, non ha un certificato e
+    non è raggiungibile da internet. Android, da Android 9, blocca il traffico in
+    chiaro: senza questo file la sincronizzazione non partirebbe nemmeno.
+
+    Il permesso però non vale per i servizi su internet: lì passano le ricerche e
+    la chiave del riconoscimento foto, e devono restare in https. Se un domani
+    qualcuno scrivesse per sbaglio "http://" davanti a uno di quelli, la chiamata
+    fallisce invece di partire in chiaro.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">openfoodfacts.org</domain>
+        <domain includeSubdomains="true">nal.usda.gov</domain>
+        <domain includeSubdomains="true">anthropic.com</domain>
+        <domain includeSubdomains="true">googleapis.com</domain>
+    </domain-config>
+</network-security-config>

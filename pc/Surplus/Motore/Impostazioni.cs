@@ -26,6 +26,12 @@ public sealed class Impostazioni
     public string AiModello { get; set; } = "";
     public string AiChiave { get; set; } = "";
 
+    /// <summary>Il server di Surplus sul NAS di casa, per esempio "192.168.1.20:8600".</summary>
+    public string NasIndirizzo { get; set; } = "";
+
+    /// <summary>Il permesso dato dal NAS a questo computer: cifrato sul disco, mai verso la pagina.</summary>
+    public string NasToken { get; set; } = "";
+
     public bool AiAttiva => !string.IsNullOrWhiteSpace(AiChiave);
 
     public string AiModelloEffettivo => string.IsNullOrWhiteSpace(AiModello)
@@ -48,6 +54,8 @@ public sealed class Impostazioni
         i.AiFornitore = Json.Testo(o["aiFornitore"]) ?? i.AiFornitore;
         i.AiModello = Json.Testo(o["aiModello"]) ?? i.AiModello;
         i.AiChiave = Dpapi.Decifra(Json.Testo(o["aiChiaveCifrata"])) ?? "";
+        i.NasIndirizzo = Json.Testo(o["nasIndirizzo"]) ?? i.NasIndirizzo;
+        i.NasToken = Dpapi.Decifra(Json.Testo(o["nasTokenCifrato"])) ?? "";
         return i;
     }
 
@@ -64,6 +72,8 @@ public sealed class Impostazioni
         ["aiFornitore"] = AiFornitore,
         ["aiModello"] = AiModello,
         ["aiChiaveCifrata"] = Dpapi.Cifra(AiChiave),
+        ["nasIndirizzo"] = NasIndirizzo,
+        ["nasTokenCifrato"] = Dpapi.Cifra(NasToken),
     }));
 
     /// <summary>Quello che la pagina può vedere: tutto tranne la chiave.</summary>

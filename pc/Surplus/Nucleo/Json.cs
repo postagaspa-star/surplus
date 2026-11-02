@@ -15,6 +15,12 @@ public static class Json
         WriteIndented = true,
         // Il file è lo stesso dell'app Android: accenti e simboli vanno scritti come sono.
         Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        // Senza questo, scrivere un albero che contiene un valore creato da un
+        // tipo .NET (JsonArray.Add("x") passa per JsonValue.Create<T>) finisce in
+        // InvalidOperationException: le opzioni fatte a mano non hanno il
+        // risolutore che quel valore usa per scriversi. Capitato per davvero, con
+        // le schede create dalla migrazione.
+        TypeInfoResolver = new System.Text.Json.Serialization.Metadata.DefaultJsonTypeInfoResolver(),
     };
 
     public static JsonNode? Nodo(string? testo)
@@ -72,4 +78,23 @@ public static class Json
     public static JsonNode? Copia(JsonNode? n) => n?.DeepClone();
 
     public static string Scrivi(JsonNode n) => n.ToJsonString(Opzioni);
+
+    /// <summary>
+    /// Lo stesso documento con le chiavi in ordine alfabetico, dentro e fuori.
+    /// Serve per rispondere a "sono uguali?" senza farsi ingannare dall'ordine in
+    /// cui sono scritte: il diario che torna dal NAS ha lo stesso contenuto ma
+    /// non per forza nello stesso ordine, e senza questo verrebbe riscritto sul
+    /// disco a ogni sincronizzazione.
+    /// </summary>
+    public static string Canonico(JsonNode? n) => Ordinato(n)?.ToJsonString(Opzioni) ?? "null";
+
+    private static JsonNode? Ordinato(JsonNode? n) => n switch
+    {
+        JsonObject o => new JsonObject(o.OrderBy(p => p.Key, StringComparer.Ordinal)
+            .Select(p => KeyValuePair.Create(p.Key, Ordinato(p.Value?.DeepClone())))),
+        // Negli elenchi l'ordine conta (le serie di un esercizio, le voci di un
+        // giorno): si tiene com'è e si ordinano solo le chiavi dentro.
+        JsonArray a => new JsonArray(a.Select(x => Ordinato(x?.DeepClone())).ToArray()),
+        _ => n?.DeepClone(),
+    };
 }

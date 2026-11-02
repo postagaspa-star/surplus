@@ -15,10 +15,18 @@ class SurplusApp : Application() {
         ).apply {
             description = "Promemoria per gli spuntini, agli orari che imposti tu"
         }
-        getSystemService(NotificationManager::class.java)?.createNotificationChannel(channel)
+        val aggiornamenti = NotificationChannel(
+            CANALE_AGGIORNAMENTI,
+            "Aggiornamenti dell'app",
+            NotificationManager.IMPORTANCE_LOW,
+        ).apply {
+            description = "Avvisa solo se Android chiede di confermare un aggiornamento"
+        }
+        getSystemService(NotificationManager::class.java)?.createNotificationChannels(listOf(channel, aggiornamenti))
     }
 
     companion object {
         const val CHANNEL_REMINDERS = "reminders"
+        const val CANALE_AGGIORNAMENTI = "aggiornamenti"
     }
 }

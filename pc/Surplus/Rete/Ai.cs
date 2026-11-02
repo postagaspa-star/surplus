@@ -351,7 +351,7 @@ Rispondi in italiano.
 
     // ---- schemi della risposta ----
 
-    private static JsonObject SchemaFotoClaude() => new()
+    internal static JsonObject SchemaFotoClaude() => new()
     {
         ["type"] = "object",
         ["properties"] = new JsonObject
@@ -386,7 +386,7 @@ Rispondi in italiano.
         ["additionalProperties"] = false,
     };
 
-    private static JsonObject SchemaFotoGemini() => new()
+    internal static JsonObject SchemaFotoGemini() => new()
     {
         ["type"] = "OBJECT",
         ["properties"] = new JsonObject
@@ -419,7 +419,7 @@ Rispondi in italiano.
         ["required"] = new JsonArray("alimenti", "domanda", "note"),
     };
 
-    private static JsonObject SchemaEsercizioClaude() => new()
+    internal static JsonObject SchemaEsercizioClaude() => new()
     {
         ["type"] = "object",
         ["properties"] = new JsonObject
@@ -435,7 +435,7 @@ Rispondi in italiano.
         ["additionalProperties"] = false,
     };
 
-    private static JsonObject SchemaEsercizioGemini() => new()
+    internal static JsonObject SchemaEsercizioGemini() => new()
     {
         ["type"] = "OBJECT",
         ["properties"] = new JsonObject
@@ -455,7 +455,7 @@ Rispondi in italiano.
     private static JsonObject Enumerazione(string t, IEnumerable<string> valori)
     {
         var lista = new JsonArray();
-        foreach (var v in valori) lista.Add(v);
+        foreach (var v in valori) lista.Add((JsonNode)v);
         return new JsonObject { ["type"] = t, ["enum"] = lista };
     }
 }

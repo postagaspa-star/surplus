@@ -1,7 +1,7 @@
 # Surplus
 
 ![Platform](https://img.shields.io/badge/platform-Android%208.0%2B-3DDC84?logo=android&logoColor=white)
-![Version](https://img.shields.io/badge/version-2.6.0-14532D)
+![Version](https://img.shields.io/badge/version-2.7.0-14532D)
 ![Privacy](https://img.shields.io/badge/data-on%20device%20only-blue)
 
 **Android app for tracking food and training through a calorie surplus** (lean bulking). Built to be fast and usable every day rather than a nutritionist-grade tracker: consistency matters more than being accurate to the gram.
@@ -38,7 +38,27 @@ No account, no ads, no subscription. Your data stays on the phone.
 
 There is a Windows version of the same app, in `pc/`: same screens, same colours, same diary file. Its window is shaped like a phone — the app was built for a tall, narrow screen, and squeezing it into a desktop layout would have made it a different app.
 
-It is a native .NET program hosting the interface in a WebView2 (the same architecture as my other desktop apps), with no server and no account: the diary lives in a file on the computer, in the very format the phone writes, so a backup moves between the two.
+It is a native .NET program hosting the interface in a WebView2 (the same architecture as my other desktop apps), with no account: the diary lives in a file on the computer, in the very format the phone writes, so a backup moves between the two.
+
+It also bundles Roboto, the font the phone uses, so the text looks the same on a computer that doesn't have it.
+
+## Keeping the two in step, at home
+
+Phone and computer can share one diary through a small server you run on your own NAS (`server/`): FastAPI in a Docker container, on the home network, pairing a device with an 8-digit code. No account, nothing on anyone else's machine.
+
+The server does not take sides. It remembers the diary each device last agreed on (the *base*) and merges three versions — base, the device's, its own:
+
+- unchanged on both sides → stays as it is
+- changed on one side only → that side wins
+- changed on both → the device syncing right now wins, and the clash is counted
+- new on one side → added
+- in the base and now missing from one side → **it was deleted, so it goes**
+
+That last line is what makes deletions work. Without the base, "missing" and "never existed" are the same thing, and a meal you deleted on the computer would climb back up from the phone forever. On the very first sync the base is empty: nothing is new, nothing is deleted, and two diaries that have never met are simply added together.
+
+Both apps keep working with the NAS switched off — the local file is still the truth for that device — and send what you wrote at the first opportunity. A merged diary that would drop more than half the entries is refused rather than saved.
+
+Both apps also update themselves from that server, so you install them by hand once. The Windows package is only installed if it carries a valid signature (ECDSA P-256, private key never in this repository); the Android one is protected by Android itself, which refuses an update signed with a different key than the installed app.
 
 ## Download
 
@@ -50,7 +70,7 @@ Updates install over the previous version without losing your data.
 
 ## Privacy
 
-Surplus runs **offline**. The diary, weigh-ins, workouts and settings live in a file belonging to the app, on the phone. There is no Surplus server and no account.
+Surplus runs **offline**. The diary, weigh-ins, workouts and settings live in a file belonging to the app, on the phone. There is no Surplus service and no account: the only server that can ever exist is the one you run on your own NAS, on your own network, and only if you pair a device with it.
 
 Something leaves the phone in three cases only, each one started by you:
 
@@ -64,16 +84,21 @@ Something leaves the phone in three cases only, each one started by you:
 
 ## Source code
 
-The code is here, in this repository: a native Android project in **Kotlin + Jetpack Compose**, with no database (data goes into a JSON file written safely) and 156 automated tests on the logic.
+The code is here, in this repository: a native Android project in **Kotlin + Jetpack Compose**, with no database (data goes into a JSON file written safely), plus the Windows program and the NAS server. 466 automated tests in all — 161 on Android, 202 on the shared interface logic, 73 on the Windows program, 30 on the server.
 
 ```
 app/src/main/kotlin/it/gaspa/surplus/
-  data/    models, file storage, food databases, AI calls
-  logic/   advice, diet quality, training rules  (pure logic, all tested)
-  ui/      Compose screens
-  notify/  reminders through AlarmManager
-app/src/test/   the tests
+  data/           models, file storage, food databases, AI calls, NAS sync
+  logic/          advice, diet quality, training rules  (pure logic, all tested)
+  ui/             Compose screens
+  notify/         reminders through AlarmManager
+  aggiornamento/  updating itself from the NAS
+app/src/test/     the Android tests
+pc/               the Windows program (.NET 8, WinForms + WebView2)
+server/           the NAS server (FastAPI in Docker): merging, pairing, packages
 ```
+
+Comments and identifiers are in Italian, like the app itself.
 
 ### Building it
 

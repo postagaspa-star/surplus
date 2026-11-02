@@ -24,6 +24,9 @@ public static class Log
 
     public static void Info(string messaggio) => Scrivi("INFO", messaggio, null);
 
+    /// <summary>Qualcosa non è andato ma il programma continua: il NAS spento, un aggiornamento rimandato.</summary>
+    public static void Avviso(string messaggio) => Scrivi("AVVISO", messaggio, null);
+
     public static void Errore(string messaggio, Exception? e = null) => Scrivi("ERRORE", messaggio, e);
 
     private static void Scrivi(string livello, string messaggio, Exception? e)

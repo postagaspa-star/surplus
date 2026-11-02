@@ -30,6 +30,9 @@ public sealed class Percorsi
     /// <summary>Cartella di lavoro della finestra (cache della pagina): si può cancellare senza danni.</summary>
     public string Finestra => Path.Combine(Cartella, "finestra");
 
+    /// <summary>Dove si prepara la versione nuova prima di installarla: si può cancellare senza danni.</summary>
+    public string Aggiornamento => Path.Combine(Cartella, "aggiornamento");
+
     public string DiarioRovinato(DateTimeOffset quando) =>
         Path.Combine(Cartella, $"data-local.illeggibile-{quando.ToUnixTimeMilliseconds()}.json");
 }

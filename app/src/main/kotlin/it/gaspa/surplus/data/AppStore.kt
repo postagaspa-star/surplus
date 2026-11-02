@@ -4,7 +4,9 @@ import android.content.Context
 import androidx.core.util.AtomicFile
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -14,6 +16,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
 import java.io.File
+import java.io.IOException
 import java.util.UUID
 import kotlin.math.roundToInt
 
@@ -113,7 +116,7 @@ class AppStore private constructor(
         scrivi(uid, next)
     }
 
-    private fun scrivi(uid: String, next: AppData) {
+    private fun scrivi(uid: String, next: AppData, poiSincronizza: Boolean = true) {
         scope.launch {
             writeMutex.withLock {
                 try {
@@ -122,10 +125,54 @@ class AppStore private constructor(
                     // Il flusso in memoria resta valido; ritenterà alla prossima mutazione.
                 }
             }
-            // Innesto cloud: oggi no-op, domani push su Firestore.
-            if (sync.isActive()) runCatching { sync.push(uid, next) }
+            if (poiSincronizza) pianificaSincronizzazione()
         }
     }
+
+    // ---- NAS di casa ----
+
+    private var lavoroSincronizzazione: Job? = null
+
+    /**
+     * Dopo una modifica si aspetta qualche secondo prima di parlare col NAS: chi
+     * scrive un pasto ne scrive spesso tre di fila, e tre sincronizzazioni di
+     * fila sarebbero tre volte lo stesso lavoro.
+     */
+    private fun pianificaSincronizzazione() {
+        if (!sync.isActive()) return
+        lavoroSincronizzazione?.cancel()
+        lavoroSincronizzazione = scope.launch {
+            delay(ATTESA_SINCRONIZZAZIONE_MS)
+            sincronizzaOra()
+        }
+    }
+
+    /**
+     * Manda il diario al NAS e tiene quello unito. Restituisce true se da fuori
+     * è arrivato qualcosa di nuovo.
+     *
+     * Il controllo prima di accettare non è formalità: se un giorno il NAS
+     * rispondesse con un diario vuoto (un errore suo, un ripristino andato
+     * male), senza quel controllo l'app cancellerebbe mesi di pasti da sola.
+     */
+    suspend fun sincronizzaOra(): Result<Boolean> {
+        if (!sync.isActive()) return Result.success(false)
+        val uid = userId
+        val mio = _state.value
+        val unito = sync.sincronizza(uid, mio) ?: return Result.failure(IOException("sincronizzazione non riuscita"))
+        if (unito == mio) return Result.success(false)
+        if (!unioneAccettabile(mio, unito)) {
+            return Result.failure(IOException("Il NAS ha mandato un diario che toglierebbe quasi tutte le voci: non l'ho accettato."))
+        }
+        _state.value = unito
+        // senza sincronizzare di nuovo: questo l'ha appena mandato il NAS.
+        scrivi(uid, unito, poiSincronizza = false)
+        return Result.success(true)
+    }
+
+    /** Una perdita di oltre metà delle voci in un colpo solo non è mai voluta. */
+    internal fun unioneAccettabile(prima: AppData, dopo: AppData): Boolean =
+        prima.entries.size < 10 || dopo.entries.size * 2 >= prima.entries.size
 
     // ---- Profilo utente ----
 
@@ -366,11 +413,14 @@ class AppStore private constructor(
     companion object {
         @Volatile private var instance: AppStore? = null
 
+        /** Quanto si aspetta, dopo una modifica, prima di mandarla al NAS. */
+        const val ATTESA_SINCRONIZZAZIONE_MS = 4_000L
+
         /**
-         * [sync] è iniettabile: passando una FirebaseSyncGateway al posto del
-         * default locale, l'app diventa cloud-enabled senza altre modifiche.
+         * [sync] è iniettabile: di serie c'è il NAS di casa, ma passando un
+         * LocalOnlyGateway l'app torna a vivere solo sul telefono.
          */
-        fun get(context: Context, sync: SyncGateway = LocalOnlyGateway()): AppStore =
+        fun get(context: Context, sync: SyncGateway = NasGateway.get(context)): AppStore =
             instance ?: synchronized(this) {
                 instance ?: AppStore(context.applicationContext, sync).also { instance = it }
             }

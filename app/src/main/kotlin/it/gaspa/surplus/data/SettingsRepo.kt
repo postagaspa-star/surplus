@@ -46,7 +46,14 @@ data class Settings(
     val aiProvider: AiProvider = AiProvider.GEMINI,
     val aiApiKey: String = "",
     val aiModel: String = "",
+    // Il NAS di casa: l'indirizzo e il permesso dato a questo telefono.
+    val nasIndirizzo: String = "",
+    val nasToken: String = "",
+    val nasUltima: Long = 0L,
 ) {
+    /** Il diario sta anche sul NAS solo se questo telefono è stato abbinato. */
+    val nasAbbinato: Boolean get() = nasIndirizzo.isNotBlank() && nasToken.isNotBlank()
+
     /** La funzione foto esiste solo se l'utente ha messo la sua chiave. */
     val aiAttiva: Boolean get() = aiApiKey.isNotBlank()
 
@@ -78,6 +85,9 @@ class SettingsRepo(context: Context) {
     private val kAiProvider = stringPreferencesKey("ai_provider")
     private val kAiKey = stringPreferencesKey("ai_api_key")
     private val kAiModel = stringPreferencesKey("ai_model")
+    private val kNasIndirizzo = stringPreferencesKey("nas_indirizzo")
+    private val kNasToken = stringPreferencesKey("nas_token")
+    private val kNasUltima = androidx.datastore.preferences.core.longPreferencesKey("nas_ultima")
 
     private fun kOn(r: ReminderKey) = booleanPreferencesKey("rem_${r.name}_on")
     private fun kHour(r: ReminderKey) = intPreferencesKey("rem_${r.name}_hour")
@@ -99,6 +109,9 @@ class SettingsRepo(context: Context) {
                 .getOrDefault(AiProvider.GEMINI),
             aiApiKey = p[kAiKey].orEmpty(),
             aiModel = p[kAiModel].orEmpty(),
+            nasIndirizzo = p[kNasIndirizzo].orEmpty(),
+            nasToken = p[kNasToken].orEmpty(),
+            nasUltima = p[kNasUltima] ?: 0L,
             reminders = ReminderKey.entries.map { r ->
                 ReminderCfg(
                     key = r,
@@ -112,6 +125,19 @@ class SettingsRepo(context: Context) {
     }
 
     suspend fun current(): Settings = flow.first()
+
+    /**
+     * Solo le voci del NAS. La sincronizzazione gira in sottofondo e salva
+     * l'ora dell'ultima volta: se passasse da [save] riscriverebbe anche gli
+     * obiettivi e la chiave, cancellando quello che stai scrivendo adesso.
+     */
+    suspend fun salvaNas(indirizzo: String? = null, token: String? = null, ultima: Long? = null) {
+        appContext.settingsDataStore.edit { p ->
+            if (indirizzo != null) p[kNasIndirizzo] = indirizzo
+            if (token != null) p[kNasToken] = token
+            if (ultima != null) p[kNasUltima] = ultima
+        }
+    }
 
     suspend fun save(s: Settings) {
         appContext.settingsDataStore.edit { p ->
@@ -127,6 +153,9 @@ class SettingsRepo(context: Context) {
             p[kAiProvider] = s.aiProvider.name
             p[kAiKey] = s.aiApiKey
             p[kAiModel] = s.aiModel
+            p[kNasIndirizzo] = s.nasIndirizzo
+            p[kNasToken] = s.nasToken
+            p[kNasUltima] = s.nasUltima
             s.reminders.forEach { r ->
                 p[kOn(r.key)] = r.enabled
                 p[kHour(r.key)] = r.hour

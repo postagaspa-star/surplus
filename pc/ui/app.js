@@ -45,6 +45,7 @@
     schedaBozza: null,   // scheda in modifica { id, nome, exerciseIds, esistente }
     esercizioAperto: null,
     finestrella: null,   // dialogo aperto
+    versione: 0,         // numero del diario nel programma: cambia se scrive qualcun altro (il NAS)
   };
 
   // ---- strumenti ----
@@ -174,6 +175,9 @@
       avviso(r.errore, true);
       return false;
     }
+    // Il numero nuovo è di questo salvataggio: senza questo, il controllo del NAS
+    // lo prenderebbe per una scrittura di qualcun altro e ricaricherebbe tutto.
+    if (r.dati && typeof r.dati.versione === 'number') stato.versione = r.dati.versione;
     return true;
   }
 
@@ -187,14 +191,37 @@
     }
     stato.dati = r.dati.dati;
     stato.impostazioni = r.dati.impostazioni;
+    stato.versione = r.dati.versione || 0;
     stato.versioneProgramma = r.dati.versioneProgramma;
     document.getElementById('app').removeAttribute('aria-busy');
     orologio();
     setInterval(orologio, 20000);
+    setInterval(guardaSeIlNasHaScritto, 30000);
     adattaZoom();
     radice.addEventListener('resize', adattaZoom);
     disegnaBarra();
     disegna();
+  }
+
+  /**
+   * La sincronizzazione col NAS gira dentro il programma e può cambiare il diario
+   * mentre la pagina è aperta (per esempio quando il telefono manda un pasto).
+   * Qui si guarda solo un numero: se è cambiato si rilegge tutto e si ridisegna.
+   * Mai mentre un dialogo è aperto: si aspetta, altrimenti sparirebbe sotto le mani.
+   */
+  async function guardaSeIlNasHaScritto() {
+    if (stato.finestrella) return;
+    const r = await Api.get('/locale/nas');
+    if (!r.ok || !r.dati || !r.dati.stato) return;
+    const versione = r.dati.stato.versioneDati;
+    if (typeof versione !== 'number' || versione === stato.versione) return;
+    const s = await Api.get('/locale/stato');
+    if (!s.ok) return;
+    stato.dati = s.dati.dati;
+    stato.versione = s.dati.versione || 0;
+    stato.impostazioni = s.dati.impostazioni;
+    disegna();
+    avviso('Diario aggiornato dal NAS.');
   }
 
   function orologio() {

@@ -20,11 +20,14 @@ import it.gaspa.surplus.data.FoodInfo
 import it.gaspa.surplus.data.FoodLookup
 import it.gaspa.surplus.data.MigrazioneSchede
 import it.gaspa.surplus.data.Moment
+import it.gaspa.surplus.data.Nas
+import it.gaspa.surplus.data.NasGateway
 import it.gaspa.surplus.data.OpenFoodFacts
 import it.gaspa.surplus.data.ReminderKey
 import it.gaspa.surplus.data.Routine
 import it.gaspa.surplus.data.Settings
 import it.gaspa.surplus.data.SettingsRepo
+import it.gaspa.surplus.data.SyncState
 import it.gaspa.surplus.data.TargetCalculator
 import it.gaspa.surplus.data.UserProfile
 import it.gaspa.surplus.data.computeTotals
@@ -169,6 +172,49 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             settingsRepo.save(s)
             ReminderScheduler.rescheduleAll(getApplication(), s)
         }
+    }
+
+    // ---- NAS di casa ----
+
+    private val nas = NasGateway.get(getApplication())
+
+    /** Com'è andata l'ultima sincronizzazione: lo mostra la schermata Impostazioni. */
+    val statoNas: StateFlow<SyncState> = nas.state
+        .stateIn(viewModelScope, SharingStarted.Eagerly, SyncState.LocalOnly)
+
+    /** In corso: l'interfaccia spegne i pulsanti finché non si sa com'è andata. */
+    private val _nasInCorso = MutableStateFlow(false)
+    val nasInCorso: StateFlow<Boolean> = _nasInCorso.asStateFlow()
+
+    /** [poi] riceve null se è andata, altrimenti la frase da mostrare. */
+    fun abbinaNas(indirizzo: String, codice: String, poi: (String?) -> Unit) {
+        if (_nasInCorso.value) return
+        _nasInCorso.value = true
+        viewModelScope.launch {
+            val esito = nas.abbina(indirizzo, codice)
+            if (esito.isSuccess) {
+                val sincronizzato = store.sincronizzaOra()
+                _nasInCorso.value = false
+                poi(sincronizzato.exceptionOrNull()?.let { it.message ?: Nas.messaggio(it) })
+            } else {
+                _nasInCorso.value = false
+                poi(esito.exceptionOrNull()?.let { Nas.messaggio(it) })
+            }
+        }
+    }
+
+    fun sincronizzaNas(poi: (String?) -> Unit) {
+        if (_nasInCorso.value) return
+        _nasInCorso.value = true
+        viewModelScope.launch {
+            val esito = store.sincronizzaOra()
+            _nasInCorso.value = false
+            poi(esito.exceptionOrNull()?.let { it.message ?: Nas.messaggio(it) })
+        }
+    }
+
+    fun staccaNas() {
+        viewModelScope.launch { nas.stacca() }
     }
 
     // ---- Allenamento ----

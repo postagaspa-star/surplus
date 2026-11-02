@@ -112,6 +112,7 @@ public sealed class Motore : IDisposable
             }
             dati = sistemato;
             Interlocked.Increment(ref versione);
+            DopoSalvataggio?.Invoke();
             return new JsonObject { ["ok"] = true, ["versione"] = VersioneDati };
         }
     }
@@ -136,6 +137,31 @@ public sealed class Motore : IDisposable
             return new JsonObject { ["ok"] = true, ["impostazioni"] = Impostazioni.PerLaPagina() };
         }
     }
+
+    /// <summary>
+    /// Cambia le impostazioni da dentro il programma (non dalla pagina) e le salva:
+    /// serve all'abbinamento col NAS, che scrive l'indirizzo e il permesso.
+    /// </summary>
+    public bool AggiornaImpostazioni(Action<Impostazioni> cambia)
+    {
+        lock (serratura)
+        {
+            cambia(Impostazioni);
+            try
+            {
+                Impostazioni.Salva(percorsi.Impostazioni);
+                return true;
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                Log.Errore("impostazioni non salvate", e);
+                return false;
+            }
+        }
+    }
+
+    /// <summary>Chiamato dopo ogni salvataggio riuscito: lo usa la sincronizzazione col NAS.</summary>
+    public Action? DopoSalvataggio { get; set; }
 
     /// <summary>Scrive o toglie la voce di avvio automatico (solo quando gira dal pacchetto).</summary>
     public Action<bool>? ApplicaAvvioLogin { get; set; }

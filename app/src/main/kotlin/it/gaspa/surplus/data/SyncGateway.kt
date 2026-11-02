@@ -43,6 +43,17 @@ interface SyncGateway {
     /** Scarica i dati del cloud, o null se non ce ne sono / non è attivo. */
     suspend fun pull(userId: String): AppData?
 
+    /**
+     * Manda il diario e restituisce quello unito, o null se non c'è niente da
+     * fare (nessun abbinamento) o se la sincronizzazione non è riuscita.
+     *
+     * È diverso da [push]: col NAS di casa non si "carica" e basta, si uniscono
+     * le due versioni, e quello che torna può contenere cose scritte sull'altro
+     * apparecchio. Chi chiama decide se tenerle (AppStore, che controlla anche
+     * che l'unione non svuoti il diario).
+     */
+    suspend fun sincronizza(userId: String, data: AppData): AppData? = null
+
     fun isActive(): Boolean
 }
 

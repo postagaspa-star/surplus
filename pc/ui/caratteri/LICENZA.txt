@@ -1,0 +1,20 @@
+roboto-latino.woff2
+
+Roboto, disegnato da Christian Robertson per Google.
+Licenza: Apache License 2.0 — https://www.apache.org/licenses/LICENSE-2.0
+
+Preso da Google Fonts (famiglia Roboto, versione v51, sottoinsieme "latin"),
+file variabile: un solo file per tutti gli spessori da 100 a 900.
+Origine: https://fonts.google.com/specimen/Roboto
+
+Sta qui dentro, e non viene chiesto a Google ogni volta che si apre il
+programma, per due motivi: Surplus sul computer non esce su internet per
+disegnare le sue schermate, e il carattere deve essere lo stesso dell'app
+Android anche su un computer che non ha Roboto installato.
+
+---
+
+Roboto, designed by Christian Robertson for Google.
+Licensed under the Apache License, Version 2.0.
+Obtained from Google Fonts (Roboto v51, "latin" subset, variable font).
+Bundled locally so the program needs no network to render its own interface.

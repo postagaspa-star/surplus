@@ -893,6 +893,12 @@
       interruttore('Apri Surplus all\'accesso a Windows', i.avvioAlLogin, (v) => salvaImpostazioni({ avvioAlLogin: v })),
     ]));
 
+    // Dati sul NAS
+    const riquadroNas = el('div', { class: 'riquadro' });
+    app.appendChild(riquadroNas);
+    disegnaNas(riquadroNas);
+    if (statoNas === null) chiediStatoNas(riquadroNas);
+
     // Backup
     app.appendChild(el('div', { class: 'riquadro' }, [
       el('div', { class: 'titolo-riquadro', style: 'margin-bottom:6px', testo: 'Copia del diario' }),
@@ -903,8 +909,135 @@
       ]),
     ]));
 
-    app.appendChild(el('div', { class: 'minuscolo', style: 'text-align:center;padding:14px 0' , testo: 'Surplus per il computer ' + (a.stato.versioneProgramma || '') + ' — dati salvati su questo computer' }));
+    app.appendChild(el('div', { class: 'minuscolo', style: 'text-align:center;padding:14px 0' , testo: 'Surplus per il computer ' + (a.stato.versioneProgramma || '') + (statoNas && statoNas.abbinato ? ' — diario su questo computer e sul NAS' : ' — dati salvati su questo computer') }));
+    const agg = statoNas && statoNas.aggiornamento;
+    if (agg && agg.pronta) {
+      app.appendChild(el('div', { class: 'minuscolo verde', style: 'text-align:center', testo: 'La versione ' + agg.nuova + ' è pronta: si installa da sola quando chiudi Surplus.' }));
+    } else if (agg && agg.errore) {
+      app.appendChild(el('div', { class: 'minuscolo rosso', style: 'text-align:center', testo: agg.errore }));
+    }
     app.appendChild(el('div', { class: 'minuscolo', style: 'text-align:center;padding-bottom:20px', testo: 'I promemoria degli spuntini restano sul telefono.' }));
+  }
+
+  // ---- il NAS di casa ----
+
+  /** Ultimo stato della sincronizzazione (null = non l'abbiamo ancora chiesto). */
+  let statoNas = null;
+
+  async function chiediStatoNas(riquadro) {
+    const r = await Api.get('/locale/nas');
+    if (!r.ok) return;
+    statoNas = r.dati.stato;
+    if (riquadro && riquadro.isConnected) disegnaNas(riquadro);
+  }
+
+  function oraDi(ms) {
+    if (!ms) return null;
+    const d = new Date(ms);
+    const oggi = new Date();
+    const stessoGiorno = d.toDateString() === oggi.toDateString();
+    const ora = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+    return stessoGiorno ? 'alle ' + ora : 'il ' + String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + ' alle ' + ora;
+  }
+
+  function disegnaNas(riquadro) {
+    const a = A();
+    const el = a.el;
+    riquadro.textContent = '';
+    riquadro.appendChild(el('div', { class: 'titolo-riquadro', style: 'margin-bottom:6px', testo: 'Diario sul NAS di casa' }));
+
+    if (statoNas === null) {
+      riquadro.appendChild(el('div', { class: 'piccolo', testo: 'Sto guardando…' }));
+      return;
+    }
+
+    if (!statoNas.abbinato) {
+      const indirizzo = el('input', { type: 'text', value: statoNas.indirizzo || '', placeholder: 'nome-del-nas:8600' });
+      const codice = el('input', { type: 'text', inputmode: 'numeric', placeholder: '8 cifre' });
+      riquadro.appendChild(el('div', { class: 'piccolo', testo: 'Il diario può stare anche sul NAS: così il telefono e il computer vedono le stesse cose, e quello che scrivi non vive su un solo apparecchio. Niente account e niente internet: i dati restano in casa.' }));
+      riquadro.appendChild(el('label', { class: 'campo' }, [el('span', { testo: 'Indirizzo del NAS' }), indirizzo]));
+      riquadro.appendChild(el('label', { class: 'campo' }, [el('span', { testo: 'Codice del NAS' }), codice]));
+      riquadro.appendChild(el('div', { class: 'minuscolo', testo: 'Il codice lo dà il NAS e vale un quarto d\'ora.' }));
+      riquadro.appendChild(el('div', { class: 'pulsanti', style: 'margin-top:10px' }, [
+        el('button', {
+          class: 'pulsante contorno', type: 'button', testo: 'Abbina questo computer',
+          click: async (e) => {
+            const b = e.currentTarget;
+            b.disabled = true;
+            b.textContent = 'Sto abbinando…';
+            const r = await Api.post('/locale/nas/abbina', { indirizzo: indirizzo.value, codice: codice.value });
+            if (r.dati && r.dati.stato) statoNas = r.dati.stato;
+            if (!r.ok) {
+              a.avviso(r.errore, true);
+              disegnaNas(riquadro);
+              return;
+            }
+            await ricaricaDopoSincronizzazione();
+            a.avviso('Computer abbinato al NAS.');
+          },
+        }),
+      ]));
+      return;
+    }
+
+    const ultima = oraDi(statoNas.ultima);
+    riquadro.appendChild(el('div', { class: 'piccolo', testo: 'Abbinato a ' + (statoNas.indirizzo || 'il NAS') + '.' }));
+    riquadro.appendChild(el('div', { class: 'piccolo', testo: ultima ? 'Ultima sincronizzazione ' + ultima + '.' : 'Non si è ancora sincronizzato.' }));
+    if (statoNas.errore) {
+      riquadro.appendChild(el('div', { class: 'piccolo rosso', style: 'margin-top:6px', testo: statoNas.errore }));
+    }
+    riquadro.appendChild(el('div', { class: 'minuscolo', style: 'margin-top:6px', testo: 'Si sincronizza da solo: all\'avvio, dopo ogni modifica e alla chiusura. Quello che scrivi senza NAS acceso parte alla prima occasione.' }));
+    riquadro.appendChild(el('div', { class: 'pulsanti', style: 'margin-top:10px' }, [
+      el('button', {
+        class: 'pulsante contorno', type: 'button', testo: 'Sincronizza adesso',
+        click: async (e) => {
+          const b = e.currentTarget;
+          b.disabled = true;
+          b.textContent = 'Sto sincronizzando…';
+          const r = await Api.post('/locale/nas/sincronizza');
+          if (r.dati && r.dati.stato) statoNas = r.dati.stato;
+          if (!r.ok) {
+            a.avviso(r.errore, true);
+            disegnaNas(riquadro);
+            return;
+          }
+          await ricaricaDopoSincronizzazione();
+          a.avviso(r.dati && r.dati.cambiato ? 'Diario aggiornato dal NAS.' : 'Già uguale al NAS.');
+        },
+      }),
+      el('button', {
+        class: 'pulsante piatto rosso', type: 'button', testo: 'Stacca',
+        click: () => {
+          a.apriFinestrella('Staccare questo computer?', [
+            a.el('p', { class: 'testo', testo: 'Il diario resta su questo computer e resta anche sul NAS, ma non si aggiornano più a vicenda. Per rimetterli insieme serve un codice nuovo.' }),
+          ], [
+            a.bottoneChiudi('Annulla'),
+            a.el('button', {
+              class: 'pulsante piatto rosso', type: 'button', testo: 'Stacca',
+              click: async () => {
+                a.chiudiFinestrella();
+                const r = await Api.post('/locale/nas/stacca');
+                if (r.dati && r.dati.stato) statoNas = r.dati.stato;
+                a.disegna();
+                a.avviso('Computer staccato dal NAS.');
+              },
+            }),
+          ]);
+        },
+      }),
+    ]));
+  }
+
+  /** Dopo una sincronizzazione il diario può essere cambiato: si rilegge dal programma. */
+  async function ricaricaDopoSincronizzazione() {
+    const a = A();
+    const r = await Api.get('/locale/stato');
+    if (r.ok) {
+      a.stato.dati = r.dati.dati;
+      a.stato.versione = r.dati.versione;
+      a.stato.impostazioni = r.dati.impostazioni;
+    }
+    a.disegna();
   }
 
   function interruttore(etichetta, acceso, quandoCambia) {

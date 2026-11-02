@@ -7,6 +7,21 @@
  * telefono Android e viene poi ingrandito o rimpicciolito per stare nella finestra.
  */
 
+/*
+ * Roboto, lo stesso carattere del telefono, dentro il programma: un solo file
+ * "variabile" (43 KB) che fa tutti gli spessori da 100 a 900, così il 400, il 500
+ * e il 700 usati qui vengono da lui e non da Segoe UI di Windows. Il file sta
+ * accanto alla pagina (font-src 'self'): niente chiamate a Google.
+ * Roboto è di Google, licenza Apache 2.0 — vedi caratteri/LICENZA.txt.
+ */
+@font-face {
+  font-family: Roboto;
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url(caratteri/roboto-latino.woff2) format('woff2');
+}
+
 :root {
   --sfondo: #FEF7FF;
   --riquadro: #E6E0E9;

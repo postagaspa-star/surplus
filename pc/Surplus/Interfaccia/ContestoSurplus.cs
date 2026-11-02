@@ -12,13 +12,16 @@ namespace Surplus.Interfaccia;
 public sealed class ContestoSurplus : ApplicationContext
 {
     private readonly Motore.Motore motore;
+    private readonly Motore.Sincronizzazione? sincronizzazione;
     private readonly Percorsi percorsi;
     private readonly Istanza istanza;
     private FinestraSurplus? finestra;
 
-    public ContestoSurplus(Motore.Motore motore, Percorsi percorsi, Istanza istanza, int? esciDopoSecondi)
+    public ContestoSurplus(Motore.Motore motore, Percorsi percorsi, Istanza istanza, int? esciDopoSecondi,
+                           Motore.Sincronizzazione? sincronizzazione = null)
     {
         this.motore = motore;
+        this.sincronizzazione = sincronizzazione;
         this.percorsi = percorsi;
         this.istanza = istanza;
 
@@ -37,7 +40,7 @@ public sealed class ContestoSurplus : ApplicationContext
 
     private void Apri()
     {
-        var f = new FinestraSurplus(new Ponte(motore), Path.Combine(AppContext.BaseDirectory, "ui"), percorsi.Finestra);
+        var f = new FinestraSurplus(new Ponte(motore, sincronizzazione), Path.Combine(AppContext.BaseDirectory, "ui"), percorsi.Finestra);
         f.FormClosed += (_, _) =>
         {
             finestra = null;
