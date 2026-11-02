@@ -277,7 +277,7 @@
     const giorni = (perGiorno || []).filter((q) => q && q.kcalTotali > 0);
     if (giorni.length === 0) return null;
     const n = giorni.length;
-    const somma = (campo) => giorni.reduce((s, q) => s + q[campo], 0);
+    const somma = (campo) => giorni.reduce((s, q) => s + numero(q[campo]), 0);
     return creaQualita(
       somma('kcalTotali') / n,
       somma('kcalConGrado') / n,

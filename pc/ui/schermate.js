@@ -216,8 +216,12 @@
   function esercizioAperto(s, log, ex, prec, indice) {
     const a = A();
     const el = a.el;
-    const proposta = (log.sets || []).length > 0
-      ? { set: log.sets[log.sets.length - 1], progressione: false }
+    // Nel file le serie sono {weightKg, reps}, la logica le restituisce {kg, rip}:
+    // leggendo il nome sbagliato peso e ripetizioni sparivano appena si riapriva
+    // un esercizio già fatto oggi.
+    const ultima = (log.sets || [])[(log.sets || []).length - 1];
+    const proposta = ultima
+      ? { set: { kg: ultima.weightKg, rip: ultima.reps }, progressione: false }
       : L.serieProposta(prec ? prec.serie : null, ex);
 
     let peso = proposta ? proposta.set.kg : 0;
@@ -786,10 +790,16 @@
       corpo.push(el('div', { class: 'piccolo verde', style: 'margin-top:8px', testo: nome }));
       mie.forEach((v) => {
         const unita = v.isDrink ? ' ml' : ' g';
+        // Senza il controllo sull'ora, le voci vecchie aprirebbero la riga con un separatore.
+        const pezzi = [];
+        const ora = L.fmtOra(v.createdAt);
+        if (ora) pezzi.push(ora);
+        pezzi.push(L.fmt1(v.grams) + unita);
+        if (v.kcal != null) pezzi.push('≈ ' + L.fmtKcal(v.kcal) + ' kcal');
         corpo.push(el('div', { class: 'voce' }, [
           el('div', { class: 'cresci' }, [
             el('div', { class: 'nome', testo: v.nome }),
-            el('div', { class: 'dettaglio', testo: L.fmtOra(v.createdAt) + ' · ' + L.fmt1(v.grams) + unita + (v.kcal != null ? ' · ≈ ' + L.fmtKcal(v.kcal) + ' kcal' : '') }),
+            el('div', { class: 'dettaglio', testo: pezzi.join(' · ') }),
           ]),
         ]));
       });

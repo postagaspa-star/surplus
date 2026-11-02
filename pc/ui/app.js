@@ -342,7 +342,12 @@
       ]);
       mie.forEach((v) => {
         const unita = v.isDrink ? ' ml' : ' g';
-        const pezzi = [L.fmtOra(v.createdAt), L.fmt1(v.grams) + unita];
+        // Le voci vecchie non hanno l'ora: senza questo controllo la riga
+        // comincerebbe con un separatore sospeso (" · 150 g").
+        const pezzi = [];
+        const ora = L.fmtOra(v.createdAt);
+        if (ora) pezzi.push(ora);
+        pezzi.push(L.fmt1(v.grams) + unita);
         if (v.kcal != null) pezzi.push('≈ ' + L.fmtKcal(v.kcal) + ' kcal, ' + L.fmt1(v.prot || 0) + ' g prot');
         riquadro.appendChild(el('div', { class: 'voce' }, [
           el('div', { class: 'cresci' }, [

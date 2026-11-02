@@ -2,7 +2,9 @@
 // (AdvisorEngineTest, DietQualityTest, SchedaNutrizionaleTest, WorkoutQueriesTest, CompilaEsercizioTest,
 // WeightRuleTest, NextOccurrenceTest, FoodMathTest, TargetCalculatorTest) e aggiungono i casi limite del porting.
 // In fondo, i "riferimenti Kotlin": risultati prodotti dal codice Kotlin vero, congelati in
-// riferimenti-kotlin.json. Si lanciano con: node --test pc/prove/js
+// riferimenti-kotlin.json. Si lanciano con: node --test pc/prove/js/logica.test.js
+// (con Node 24 la sola cartella non basta: `node --test pc/prove/js` prova a caricarla come un modulo;
+// vanno bene il file, il glob "pc/prove/js/*.test.js" oppure `node --test` senza argomenti da dentro la cartella).
 'use strict';
 
 const { test } = require('node:test');
@@ -54,9 +56,14 @@ test('script classico: nel browser mette window.SurplusLogica e non sporca lo sp
   assert.strictEqual(finestra.SurplusLogica.fmt1(3.25), '3,2');
 });
 
-test('script classico: sotto Node (senza window) esporta gli stessi nomi', () => {
-  assert.strictEqual(typeof window, 'undefined');
-  assert.strictEqual(globalThis.SurplusLogica, L);
+test('script classico: sotto Node (senza window) esporta le stesse funzioni con module.exports', () => {
+  const codice = fs.readFileSync(FILE_LOGICA, 'utf8');
+  const modulo = { exports: {} };
+  const contesto = vm.createContext({ module: modulo });
+  vm.runInContext(codice, contesto);
+  assert.deepStrictEqual(Object.keys(modulo.exports), Object.keys(L));
+  assert.strictEqual(vm.runInContext('globalThis.SurplusLogica', contesto), modulo.exports);
+  assert.strictEqual(modulo.exports.fmtLitri(3250), '3,2');
 });
 
 test('solo funzioni pure: nessun DOM, nessuna rete, nessun modulo', () => {
@@ -902,7 +909,7 @@ test('allenamento: ultima volta di una scheda - solo sessioni con serie', () => 
 
 // --- Casi limite dell'allenamento -------------------------------------------------------------------------------------
 
-test('allenamento: le serie si leggono sia {weightKg, reps} sia {kg, rip}, e escono sempre {kg, rip}', () => {
+test('allenamento: le serie si leggono sia {weightKg, reps} sia {kg, rip}, ed escono sempre {kg, rip}', () => {
   const comeFile = sessione('a', '2026-07-20', 1, logEs('sp', serieFile(10, 8), serieFile(12.5, 6)));
   const comePc = sessione('a', '2026-07-20', 1, logEs('sp', kr(10, 8), kr(12.5, 6)));
   assert.deepStrictEqual(L.storicoEsercizio([comeFile], 'sp'), L.storicoEsercizio([comePc], 'sp'));
@@ -1256,7 +1263,7 @@ test('peso: la finestra è di 35 giorni - la pesata di 35 giorni fa conta, quell
   assert.strictEqual(L.regolaPeso([peso(36, 70.0), peso(0, 70.1)], OGGI), null);
 });
 
-test('peso: date illeggibili o future vengono saltate, un\'ordine qualunque va bene', () => {
+test('peso: date illeggibili o future vengono saltate, un ordine qualunque va bene', () => {
   const pesi = [peso(0, 70.1), { date: 'ieri', kg: 99 }, { date: '2026-02-30', kg: 99 }, { date: isoFa(-3), kg: 99 }, peso(28, 70.0), { date: '', kg: 99 }, null, { kg: 70 }, { date: isoFa(5), kg: 'x' }];
   const a = L.regolaPeso(pesi, OGGI);
   assert.strictEqual(a.giorni, 28);
@@ -1534,4 +1541,108 @@ test('formato: data - senza "oggi" si usa il giorno di adesso', () => {
   const iso = (d) => d.getFullYear() + '-' + dueCifre(d.getMonth() + 1) + '-' + dueCifre(d.getDate());
   assert.strictEqual(L.etichettaData(iso(n)), 'Oggi');
   assert.strictEqual(L.etichettaDataBreve(iso(new Date(n.getFullYear(), n.getMonth(), n.getDate() - 1, 12))), 'Ieri');
+});
+
+// --- Riferimenti Kotlin --------------------------------------------------------------------------------------------
+// riferimenti-kotlin.json contiene casi (funzione, ingressi, risultato) eseguiti sul codice Kotlin vero dell'app,
+// compilato a parte con gli stessi sorgenti: sono congelati qui perché il porting resti identico anche in futuro,
+// senza bisogno di Java. Ogni gruppo ha casi di confine (soglie, metà strada, date, testi dei consigli).
+
+const RIFERIMENTI = JSON.parse(fs.readFileSync(path.join(__dirname, 'riferimenti-kotlin.json'), 'utf8'));
+
+/** Il -0 non è una differenza che interessi: 0 e -0 sono lo stesso numero per chi legge. */
+function senzaMenoZero(x) {
+  if (typeof x === 'number') return x === 0 ? 0 : x;
+  if (Array.isArray(x)) return x.map(senzaMenoZero);
+  if (x && typeof x === 'object') return Object.fromEntries(Object.entries(x).map(([k, v]) => [k, senzaMenoZero(v)]));
+  return x;
+}
+const comeFile = (sessioni) => sessioni.map((s) => Object.assign({}, s, {
+  exercises: s.exercises.map((e) => Object.assign({}, e, { sets: e.sets.map((x) => ({ weightKg: x.kg, reps: x.rip })) })),
+}));
+const sessioniDi = (a) => (a.android ? comeFile(a.sessioni) : a.sessioni);
+
+/** Come si chiama ogni funzione partendo dagli ingressi salvati. */
+const RICHIAMI = {
+  fmtInt: (a) => L.fmtInt(a.n),
+  fmtKcal: (a) => L.fmtKcal(a.v),
+  fmt1: (a) => L.fmt1(a.v),
+  fmtLitri: (a) => L.fmtLitri(a.ml),
+  fmtSerie: (a) => L.fmtSerie({ kg: a.kg, rip: a.rip }),
+  etichettaData: (a) => L.etichettaData(a.iso, a.oggi),
+  etichettaDataBreve: (a) => L.etichettaDataBreve(a.iso, a.oggi),
+  totaliGiorno: (a) => L.totaliGiorno(a.voci),
+  perGrammi: (a) => L.perGrammi(a.grammi, a.per100),
+  qualitaGiorno: (a) => L.qualitaGiorno(a.voci),
+  mediaQualita: (a) => L.mediaQualita(a.lista),
+  consigli: (a) => L.consigli(new Date(2026, 6, 30, a.h, a.m), a.giorno, a.ieri, a.obiettivi),
+  ultimeSerie: (a) => L.ultimeSerie(sessioniDi(a), a.esercizioId, a.correnteId),
+  storicoEsercizio: (a) => L.storicoEsercizio(sessioniDi(a), a.esercizioId),
+  allenatoIl: (a) => L.allenatoIl(sessioniDi(a), a.data),
+  ultimaVoltaScheda: (a) => L.ultimaVoltaScheda(sessioniDi(a), a.schedaId),
+  tutteAlMassimo: (a) => L.tutteAlMassimo(a.serie, a.repMax),
+  arrotondaKg: (a) => L.arrotondaKg(a.kg),
+  serieProposta: (a) => L.serieProposta(a.serie && a.android ? a.serie.map((x) => ({ weightKg: x.kg, reps: x.rip })) : a.serie, a.esercizio),
+  compilaEsercizio: (a) => L.compilaEsercizio(a.nome, a.salto),
+  saltoAbituale: (a) => L.saltoAbituale(a.salti),
+  scheda: (a) => L.schedaNutrizionale(a).righe.map((x) => ({ titolo: x.titolo, nota: x.nota, valore: x.valore, ok: x.ok })),
+  contributo: (a) => L.contributoScheda(a.alimento, a.grammi),
+  regolaPeso: (a) => { const x = L.regolaPeso(a.pesi, a.oggi); return x ? x.testo : null; },
+  calcolaObiettivi: (a) => Object.assign({}, L.calcolaObiettivi(a.profilo, a.anno), { bmrEsatto: L.metabolismoBasale(a.profilo, a.anno) }),
+  rispostaAi: (a) => { try { return L.leggiRispostaAiEsercizio(a.testo); } catch (e) { return { errore: true }; } },
+};
+
+/** "2026-03-29T02:08": un orario che nel fuso di questa macchina potrebbe non esistere (salto dell'ora legale). */
+function orarioEsiste(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(iso);
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]));
+  return d.getHours() === Number(m[4]) && d.getMinutes() === Number(m[5]) && d.getDate() === Number(m[3]);
+}
+const comeOrologio = (r) => (r === null ? null : r.getFullYear() + '-' + dueCifre(r.getMonth() + 1) + '-' + dueCifre(r.getDate()) + 'T' + dueCifre(r.getHours()) + ':' + dueCifre(r.getMinutes()));
+
+const gruppiRiferimenti = {};
+for (const caso of RIFERIMENTI) (gruppiRiferimenti[caso.fn] = gruppiRiferimenti[caso.fn] || []).push(caso);
+
+test('riferimenti Kotlin: ogni funzione del file ha il suo richiamo, e ogni richiamo ha dei casi', () => {
+  assert.deepStrictEqual(Object.keys(gruppiRiferimenti).filter((f) => !RICHIAMI[f] && f !== 'prossimaOccorrenza'), []);
+  assert.deepStrictEqual(Object.keys(RICHIAMI).filter((f) => !gruppiRiferimenti[f]), []);
+  assert.ok(RIFERIMENTI.length > 800);
+});
+
+for (const [nome, casi] of Object.entries(gruppiRiferimenti)) {
+  if (nome === 'prossimaOccorrenza') continue;
+  test('riferimenti Kotlin: ' + nome + ' (' + casi.length + ' casi)', () => {
+    casi.forEach((caso, i) => {
+      const trovato = senzaMenoZero(RICHIAMI[nome](caso.a));
+      const atteso = senzaMenoZero(caso.atteso);
+      if (atteso && atteso.errore !== undefined) return assert.ok(trovato && trovato.errore, 'caso ' + i + ': doveva essere un errore');
+      assert.deepStrictEqual(trovato, atteso, 'caso ' + i + ' ' + JSON.stringify(caso.a).slice(0, 400));
+    });
+  });
+}
+
+test('riferimenti Kotlin: prossimaOccorrenza (' + (gruppiRiferimenti.prossimaOccorrenza || []).length + ' casi, salvo gli orari che nel fuso di questa macchina non esistono)', () => {
+  let provati = 0;
+  for (const caso of gruppiRiferimenti.prossimaOccorrenza) {
+    const a = caso.a;
+    if (!orarioEsiste(a.adesso) || (caso.atteso !== null && !orarioEsiste(caso.atteso))) continue;
+    const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})$/.exec(a.adesso);
+    const adesso = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]), Number(m[6]));
+    assert.strictEqual(comeOrologio(L.prossimaOccorrenza(adesso, a.ora, a.minuto, a.maschera)), caso.atteso, JSON.stringify(a));
+    provati++;
+  }
+  assert.ok(provati > 30, 'pochi casi provati: ' + provati);
+});
+
+test('riferimenti Kotlin: nessun consiglio dei casi salvati usa parole che colpevolizzano', () => {
+  const proibite = ['cattiv', 'sbagliat', 'male', 'schifezz', 'colpa', 'evita', 'smetti', 'non mangiare'];
+  let visti = 0;
+  for (const caso of gruppiRiferimenti.consigli) {
+    for (const c of caso.atteso) {
+      visti++;
+      const testo = (c.testo + ' ' + c.perche).toLowerCase();
+      for (const p of proibite) assert.ok(!testo.includes(p), '«' + p + '» in: ' + c.testo);
+    }
+  }
+  assert.ok(visti > 80);
 });

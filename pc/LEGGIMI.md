@@ -46,7 +46,8 @@ file principale si rovina, il programma riparte da quella.
 
 ```
 node pc/prove/banco.js                 interfaccia su http://127.0.0.1:8777 con dati finti
-node --test pc/prove/js                prove della logica
+node --test "pc/prove/js/*.test.js"    prove della logica (la sola cartella non basta: su
+                                       Windows node prova a caricarla come modulo e fallisce)
 dotnet test pc/Surplus.Tests           prove del programma
 dotnet run --project pc/Surplus -- --no-installa --dati %TEMP%\surplus-prova
 powershell -File pc/prove/crea-pacchetto.ps1    costruisce pc/dist/surplus-pc.zip
