@@ -35,24 +35,53 @@ public sealed class Alimenti
         // Un codice a barre scritto nella ricerca vale come scansione.
         if (ÈCodice(testo)) return await PerCodiceAsync(testo).ConfigureAwait(false);
 
+        // Prima il motore di ricerca nuovo di Open Food Facts, veloce e che regge le
+        // ricerche di fila; quello vecchio (search.pl) risponde "occupato" a metà delle
+        // richieste e resta solo come riserva.
+        string corpo;
         try
         {
-            var url = "https://world.openfoodfacts.org/cgi/search.pl?search_terms=" + Uri.EscapeDataString(testo)
-                      + "&search_simple=1&action=process&json=1&page_size=15&fields=" + Campi + "&countries_tags_en=italy";
-            var corpo = await Http.GetStringAsync(url).ConfigureAwait(false);
-            var prodotti = Json.Lista(Json.Oggetto(corpo)?["products"]);
-            var fuori = new JsonArray();
-            foreach (var p in prodotti)
-            {
-                if (p is JsonObject po && DaOpenFoodFacts(po, null) is JsonObject info) fuori.Add(info);
-            }
-            return new JsonObject { ["ok"] = true, ["risultati"] = fuori };
+            corpo = await Http.GetStringAsync("https://search.openfoodfacts.org/search?q=" + Uri.EscapeDataString(Ricerca(testo))
+                                              + "&langs=it&page_size=15&fields=" + Campi).ConfigureAwait(false);
         }
         catch (Exception e) when (e is HttpRequestException or TaskCanceledException)
         {
-            Motore.Log.Errore("ricerca alimenti non riuscita", e);
-            return new JsonObject { ["errore"] = SenzaRete, ["codice"] = "rete" };
+            Motore.Log.Avviso("ricerca alimenti: motore nuovo non raggiunto, provo il vecchio (" + e.Message + ")");
+            try
+            {
+                corpo = await Http.GetStringAsync("https://world.openfoodfacts.org/cgi/search.pl?search_terms=" + Uri.EscapeDataString(testo)
+                                                  + "&search_simple=1&action=process&json=1&page_size=15&fields=" + Campi + "&countries_tags_en=italy").ConfigureAwait(false);
+            }
+            catch (Exception e2) when (e2 is HttpRequestException or TaskCanceledException)
+            {
+                Motore.Log.Errore("ricerca alimenti non riuscita", e2);
+                return new JsonObject { ["errore"] = SenzaRete, ["codice"] = "rete" };
+            }
         }
+        return new JsonObject { ["ok"] = true, ["risultati"] = Risultati(corpo) };
+    }
+
+    /// <summary>I prodotti di una risposta: "hits" nel motore nuovo, "products" in quello vecchio.</summary>
+    public static JsonArray Risultati(string corpo)
+    {
+        var radice = Json.Oggetto(corpo);
+        var fuori = new JsonArray();
+        foreach (var p in Json.Lista(radice?["hits"] ?? radice?["products"]))
+        {
+            if (p is JsonObject po && DaOpenFoodFacts(po, null) is JsonObject info) fuori.Add(info);
+        }
+        return fuori;
+    }
+
+    /// <summary>
+    /// Il motore nuovo legge la ricerca come una piccola formula: due punti, virgolette e
+    /// parentesi scritti a mano la romperebbero. Restano lettere, cifre, spazi e apostrofi,
+    /// più il filtro sui prodotti venduti in Italia.
+    /// </summary>
+    public static string Ricerca(string testo)
+    {
+        var pulita = new string(testo.Select(c => char.IsLetterOrDigit(c) || c == '\'' ? c : ' ').ToArray());
+        return string.Join(' ', pulita.Split(' ', StringSplitOptions.RemoveEmptyEntries)) + " countries_tags:\"en:italy\"";
     }
 
     public async Task<JsonObject> PerCodiceAsync(string codice)
@@ -105,7 +134,8 @@ public sealed class Alimenti
         if (kcal is null or <= 0) return null; // senza calorie il prodotto non serve a nulla
 
         var categorie = string.Join(" ", Json.Lista(p["categories_tags"]).Select(x => Json.Testo(x) ?? ""));
-        var marca = Json.Testo(p["brands"])?.Split(',').FirstOrDefault()?.Trim();
+        // La marca arriva come "A, B" dal motore vecchio e come ["A", "B"] da quello nuovo.
+        var marca = (Json.Testo(p["brands"]) ?? Json.Testo(Json.Lista(p["brands"]).FirstOrDefault()))?.Split(',').FirstOrDefault()?.Trim();
         var nova = Json.Numero(p["nova_group"]) is double g && g >= 1 && g <= 4 ? (int)g : (int?)null;
 
         return Info(

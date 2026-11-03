@@ -1,7 +1,7 @@
 # Surplus
 
 ![Platform](https://img.shields.io/badge/platform-Android%208.0%2B-3DDC84?logo=android&logoColor=white)
-![Version](https://img.shields.io/badge/version-2.7.1-14532D)
+![Version](https://img.shields.io/badge/version-2.7.2-14532D)
 ![Privacy](https://img.shields.io/badge/data-only%20on%20your%20own%20devices-blue)
 
 **Android app for tracking food and training through a calorie surplus** (lean bulking). Built to be fast and usable every day rather than a nutritionist-grade tracker: consistency matters more than being accurate to the gram.
@@ -95,7 +95,7 @@ Something leaves the phone in four cases only, each one started by you:
 
 ## Source code
 
-The code is here, in this repository: a native Android project in **Kotlin + Jetpack Compose**, with no database (data goes into a JSON file written safely), plus the Windows program and the NAS server. 476 automated tests in all — 161 on Android, 202 on the shared interface logic, 76 on the Windows program, 37 on the server.
+The code is here, in this repository: a native Android project in **Kotlin + Jetpack Compose**, with no database (data goes into a JSON file written safely), plus the Windows program and the NAS server. 482 automated tests in all — 164 on Android, 202 on the shared interface logic, 79 on the Windows program, 37 on the server.
 
 ```
 app/src/main/kotlin/it/gaspa/surplus/

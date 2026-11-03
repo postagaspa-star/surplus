@@ -89,4 +89,38 @@ class OpenFoodFactsTest {
         assertTrue(food.custom)
         assertNotNull(food.hint)
     }
+
+    @Test
+    fun `motore nuovo - legge hits e la marca come elenco`() {
+        val body = """
+            {"hits":[
+              {"product_name":"Crema di verdure","brands":["Pam & Panorama","Pam"],
+               "nutriments":{"energy-kcal_100g":41,"proteins_100g":1.1},"nova_group":3,
+               "categories_tags":["en:soups"]},
+              {"product_name":"Senza marca","nutriments":{"energy-kcal_100g":31}}
+            ],"page":1}
+        """.trimIndent()
+        val r = OpenFoodFacts.parseSearch(body)
+        assertEquals(2, r.size)
+        assertEquals("Pam & Panorama", r[0].marca)
+        assertEquals(3, r[0].nova)
+        assertEquals(null, r[1].marca)
+    }
+
+    @Test
+    fun `motore nuovo - marca vuota o null non diventa una marca`() {
+        val body = """
+            {"hits":[{"product_name":"A","brands":null,"nutriments":{"energy-kcal_100g":10}},
+                     {"product_name":"B","brands":[],"nutriments":{"energy-kcal_100g":10}}]}
+        """.trimIndent()
+        assertTrue(OpenFoodFacts.parseSearch(body).all { it.marca == null })
+    }
+
+    @Test
+    fun `ricerca - toglie i segni che romperebbero il motore e filtra l'Italia`() {
+        assertEquals(
+            "caffe d'orzo 100 countries_tags:\"en:italy\"",
+            OpenFoodFacts.searchQuery("  caffe: d'orzo (100) \"  "),
+        )
+    }
 }

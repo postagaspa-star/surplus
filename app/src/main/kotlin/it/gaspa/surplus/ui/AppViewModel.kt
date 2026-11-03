@@ -378,7 +378,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 .onFailure {
                     _offState.value =
-                        OffState.Failed("Ricerca non riuscita: controlla la connessione. Puoi comunque creare l'alimento a mano.")
+                        OffState.Failed("Ricerca non riuscita: controlla la connessione o riprova tra poco. Puoi comunque creare l'alimento a mano.")
                 }
         }
     }

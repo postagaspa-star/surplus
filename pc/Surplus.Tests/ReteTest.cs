@@ -39,6 +39,34 @@ public class ReteTest
         Assert.Equal(atteso, Alimenti.ÈCodice(codice));
 
     [Fact]
+    public void Motore_nuovo_hits_e_marca_come_elenco()
+    {
+        var r = Alimenti.Risultati("""
+            {"hits":[
+              {"product_name":"Crema di verdure","brands":["Pam & Panorama","Pam"],"nova_group":3,
+               "nutriments":{"energy-kcal_100g":41,"proteins_100g":1.1},"categories_tags":["en:soups"]},
+              {"product_name":"Senza marca","brands":null,"nutriments":{"energy-kcal_100g":31}},
+              {"product_name":"Senza calorie","nutriments":{}}
+            ]}
+            """);
+        Assert.Equal(2, r.Count);
+        Assert.Equal("Crema di verdure (Pam & Panorama)", (string?)r[0]!["nome"]);
+        Assert.Equal(3, (int?)r[0]!["nova"]);
+        Assert.Equal("Senza marca", (string?)r[1]!["nome"]);
+    }
+
+    [Fact]
+    public void Motore_vecchio_products_e_marca_come_testo()
+    {
+        var r = Alimenti.Risultati("""{"products":[{"product_name":"Penne","brands":"Barilla, X","nutriments":{"energy-kcal_100g":355}}]}""");
+        Assert.Equal("Penne (Barilla)", (string?)r.Single()!["nome"]);
+    }
+
+    [Fact]
+    public void Ricerca_senza_segni_che_rompono_il_motore() =>
+        Assert.Equal("caffe d'orzo 100 countries_tags:\"en:italy\"", Alimenti.Ricerca("  caffe: d'orzo (100) \"  "));
+
+    [Fact]
     public void Piu_foto_dello_stesso_alimento_vanno_unite()
     {
         var t = Ai.IstruzioniFoto(3, unico: false);

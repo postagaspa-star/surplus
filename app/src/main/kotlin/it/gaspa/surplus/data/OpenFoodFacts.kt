@@ -18,22 +18,44 @@ import java.net.URLEncoder
  */
 object OpenFoodFacts {
 
-    private const val SEARCH = "https://world.openfoodfacts.org/cgi/search.pl"
+    // Il motore di ricerca nuovo di Open Food Facts: veloce e regge le ricerche di fila.
+    // Quello vecchio (search.pl) risponde "occupato" a metà delle richieste: resta solo
+    // come riserva, se il nuovo non risponde.
+    private const val SEARCH = "https://search.openfoodfacts.org/search"
+    private const val SEARCH_OLD = "https://world.openfoodfacts.org/cgi/search.pl"
     private const val PRODUCT = "https://world.openfoodfacts.org/api/v2/product"
     private const val FIELDS =
         "product_name,product_name_it,brands,quantity,nutriments,categories_tags,nova_group,additives_n"
     private const val UA = "Surplus/2.1 (app personale; kotlin)"
     private val json = Json { ignoreUnknownKeys = true }
 
-    /** Cerca per nome. Lancia se la rete non c'è: il chiamante mostra l'errore. */
+    /** Cerca per nome. Lancia se nessuno dei due motori risponde: il chiamante mostra l'errore. */
     suspend fun search(query: String, limit: Int = 15): List<FoodInfo> {
-        val body = Http.get(
-            "$SEARCH?search_terms=${URLEncoder.encode(query, "UTF-8")}" +
+        val nuovo = runCatching {
+            Http.get(
+                "$SEARCH?q=${URLEncoder.encode(searchQuery(query), "UTF-8")}" +
+                    "&langs=it&page_size=$limit&fields=$FIELDS",
+                UA,
+            )
+        }
+        val body = nuovo.getOrNull() ?: Http.get(
+            "$SEARCH_OLD?search_terms=${URLEncoder.encode(query, "UTF-8")}" +
                 "&search_simple=1&action=process&json=1&page_size=$limit" +
                 "&fields=$FIELDS&countries_tags_en=italy",
             UA,
         )
         return parseSearch(body)
+    }
+
+    /**
+     * Il motore nuovo legge la ricerca come una piccola formula: due punti, virgolette
+     * e parentesi scritti dall'utente la romperebbero. Restano lettere, cifre, spazi e
+     * apostrofi, più il filtro sui prodotti venduti in Italia.
+     */
+    internal fun searchQuery(query: String): String {
+        val pulita = query.map { if (it.isLetterOrDigit() || it == '\'') it else ' ' }
+            .joinToString("").split(' ').filter { it.isNotBlank() }.joinToString(" ")
+        return "$pulita countries_tags:\"en:italy\""
     }
 
     /** Cerca per codice a barre. null = archivio raggiunto ma prodotto assente. */
@@ -43,8 +65,9 @@ object OpenFoodFacts {
     }
 
     internal fun parseSearch(body: String): List<FoodInfo> {
-        val products = json.parseToJsonElement(body).jsonObject["products"]?.jsonArray
-            ?: return emptyList()
+        // "hits" nel motore nuovo, "products" in quello vecchio.
+        val root = json.parseToJsonElement(body).jsonObject
+        val products = (root["hits"] ?: root["products"])?.jsonArray ?: return emptyList()
         return products.mapNotNull { toInfo(it.jsonObject, null) }
             .filter { it.kcal100 != null } // senza calorie il prodotto non serve a nulla
     }
@@ -69,8 +92,7 @@ object OpenFoodFacts {
         }.orEmpty()
         return FoodInfo(
             nome = nome,
-            marca = p["brands"]?.jsonPrimitive?.safeContent()?.split(",")?.firstOrNull()?.trim()
-                ?.takeIf { it.isNotBlank() },
+            marca = firstBrand(p["brands"]),
             kcal100 = kcal?.takeIf { it > 0 }?.let { kotlin.math.round(it * 10) / 10 },
             prot100 = n?.get("proteins_100g")?.jsonPrimitive?.safeDouble(),
             grassi100 = n?.get("fat_100g")?.jsonPrimitive?.safeDouble(),
@@ -86,6 +108,18 @@ object OpenFoodFacts {
             fonte = "Open Food Facts",
         )
     }
+}
+
+/** La marca arriva come "A, B" dal motore vecchio e come ["A", "B"] da quello nuovo. */
+private fun firstBrand(e: kotlinx.serialization.json.JsonElement?): String? {
+    val testo = when (e) {
+        is kotlinx.serialization.json.JsonNull, null -> null
+        is kotlinx.serialization.json.JsonArray -> e.firstOrNull()
+            ?.let { it as? kotlinx.serialization.json.JsonPrimitive }?.safeContent()
+        is kotlinx.serialization.json.JsonPrimitive -> e.safeContent()
+        else -> null
+    }
+    return testo?.split(",")?.firstOrNull()?.trim()?.takeIf { it.isNotBlank() }
 }
 
 // I primitivi JSON di Open Food Facts sono a volte stringa, a volte numero:

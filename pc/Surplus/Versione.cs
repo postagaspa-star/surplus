@@ -6,14 +6,14 @@ namespace Surplus;
 /// </summary>
 public static class Versione
 {
-    public const string Nome = "1.1.1";
+    public const string Nome = "1.1.2";
 
     /// <summary>
     /// Il numero che cresce di uno a ogni versione: lo usa l'aggiornamento
     /// automatico per capire se quella sul NAS è più nuova di questa. Va alzato
     /// insieme a <see cref="Nome"/>, e lo stesso numero finisce in versioni.json.
     /// </summary>
-    public const int Codice = 3;
+    public const int Codice = 4;
 
     /// <summary>Formato dei dati che questo programma sa leggere e scrivere (lo stesso dell'app).</summary>
     public const int Schema = 4;
