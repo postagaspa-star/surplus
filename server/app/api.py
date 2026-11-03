@@ -4,6 +4,7 @@
   POST /api/abbina          codice di 8 cifre -> token del dispositivo
   GET  /api/diario          il diario del NAS (serve a un dispositivo nuovo)
   POST /api/sincronizza     manda il tuo diario, ti torna quello unito
+  GET  /api/novita          aspetta finché il diario del NAS non cambia (il "campanello")
   GET  /api/versione        quale versione delle app c'è da scaricare
   GET  /scarica/<file>      il pacchetto del computer, la sua firma, l'app Android
 
@@ -18,10 +19,11 @@ import hashlib
 import json
 import sqlite3
 import threading
+import time
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
@@ -33,6 +35,7 @@ from .db import (
     diario_alla_revisione,
     dispositivo_da_token,
     leggi_base,
+    leggi_revisione,
     leggi_stato,
     scrivi_base,
     scrivi_stato,
@@ -45,6 +48,13 @@ router = APIRouter()
 SENZA_CACHE = {"Cache-Control": "no-store"}
 
 _una_alla_volta = threading.Lock()
+
+# Il campanello: chi aspetta le novità dorme qui, e ogni diario nuovo lo sveglia.
+_campanello = threading.Condition()
+
+# Più di così una richiesta non resta aperta: le app la rifanno subito dopo, e
+# intanto nessun router o proxy di mezzo la chiude per troppa inattività.
+ATTESA_MASSIMA = 25.0
 
 FILE_SCARICABILI = {
     "surplus-pc.zip": "application/zip",
@@ -153,8 +163,35 @@ def sincronizza(corpo: SincronizzaIn, request: Request,
                     "conflitti": conflitti, "diario": unione.conta(unito)}
         nuova = scrivi_stato(conn, imp, unito)
         scrivi_base(conn, id_dispositivo, unito, nuova)
+        with _campanello:
+            _campanello.notify_all()
         return {"ok": True, "revisione": nuova, "dati": unito, "cambiato": True,
                 "conflitti": conflitti, "diario": unione.conta(unito)}
+
+
+@router.get("/api/novita")
+def novita(request: Request,
+           revisione: int = Query(default=0, ge=0),
+           attesa: float = Query(default=20.0, ge=0.0, le=ATTESA_MASSIMA),
+           chi: sqlite3.Row = Depends(dispositivo)) -> dict[str, Any]:
+    """Risponde appena il diario del NAS non è più alla `revisione` che hai tu.
+
+    Se è già diverso risponde subito; se no aspetta fino a `attesa` secondi che un
+    altro apparecchio scriva qualcosa. Così telefono e computer, mentre sono aperti,
+    sanno dell'altro in un attimo invece di chiedere ogni tanto "c'è niente?".
+    Non manda il diario: per quello c'è /api/sincronizza.
+    """
+    conn = _conn(request)
+    scadenza = time.monotonic() + attesa
+    with _campanello:
+        attuale = leggi_revisione(conn)
+        while attuale == revisione:
+            resta = scadenza - time.monotonic()
+            if resta <= 0:
+                break
+            _campanello.wait(resta)
+            attuale = leggi_revisione(conn)
+    return {"ok": True, "revisione": attuale, "cambiato": attuale != revisione}
 
 
 def _impronta(percorso: Path) -> str | None:

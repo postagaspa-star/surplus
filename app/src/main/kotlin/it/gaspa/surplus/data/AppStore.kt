@@ -216,6 +216,36 @@ class AppStore private constructor(
         }.isSuccess
     }
 
+    /**
+     * Mentre l'app è aperta resta in ascolto del NAS: appena il computer scrive un
+     * pasto, il NAS lo dice e qui si sincronizza subito, così le due app mostrano
+     * sempre lo stesso diario. Gira finché chi l'ha lanciata non la ferma (l'app
+     * che va in secondo piano). Se il NAS non risponde (fuori casa, NAS spento)
+     * si riprova sempre più di rado, fino a quindici secondi.
+     */
+    suspend fun restaInAscolto() {
+        var pausa = 0L
+        while (true) {
+            val novita = try {
+                sync.attendiNovita()
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                pausa = (pausa * 2).coerceIn(PAUSA_MINIMA_ASCOLTO_MS, PAUSA_MASSIMA_ASCOLTO_MS)
+                delay(pausa)
+                continue
+            }
+            // Il NAS è appena tornato (rientro a casa, NAS riacceso): quello che hai
+            // scritto nel frattempo parte subito, senza aspettare la prossima modifica.
+            val eraGiu = pausa > 0L
+            pausa = 0L
+            if (novita || eraGiu) sincronizzaOra()
+            // Un respiro fra una domanda e l'altra: se qualcosa non torna (una
+            // sincronizzazione che non riesce a tenere il diario) non si gira a vuoto.
+            delay(500)
+        }
+    }
+
     /** Una perdita di oltre metà delle voci in un colpo solo non è mai voluta. */
     internal fun unioneAccettabile(prima: AppData, dopo: AppData): Boolean =
         prima.entries.size < 10 || dopo.entries.size * 2 >= prima.entries.size
@@ -460,7 +490,9 @@ class AppStore private constructor(
         @Volatile private var instance: AppStore? = null
 
         /** Quanto si aspetta, dopo una modifica, prima di mandarla al NAS. */
-        const val ATTESA_SINCRONIZZAZIONE_MS = 4_000L
+        const val ATTESA_SINCRONIZZAZIONE_MS = 1_500L
+        const val PAUSA_MINIMA_ASCOLTO_MS = 5_000L
+        const val PAUSA_MASSIMA_ASCOLTO_MS = 15_000L
 
         /**
          * [sync] è iniettabile: di serie c'è il NAS di casa, ma passando un

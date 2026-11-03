@@ -12,14 +12,19 @@ namespace Surplus.Motore;
 /// regola sta in server/app/unione.py): nessuna delle due parti sovrascrive
 /// l'altra, e una voce cancellata resta cancellata.
 ///
-/// Quando: appena il programma si apre, qualche secondo dopo ogni modifica, ogni
-/// dieci minuti e un'ultima volta alla chiusura. Se il NAS non risponde non
+/// Quando: appena il programma si apre, un secondo e mezzo dopo ogni modifica, ogni
+/// dieci minuti e un'ultima volta alla chiusura. E in più, finché il programma è
+/// aperto, resta in ascolto del NAS: appena il telefono scrive qualcosa il NAS lo
+/// dice e si sincronizza subito (vedi AscoltaAsync). Se il NAS non risponde non
 /// succede niente di grave: si riprova la volta dopo.
 /// </summary>
 public sealed class Sincronizzazione : IDisposable
 {
     /// <summary>Dopo una modifica si aspetta un attimo: chi scrive un pasto ne scrive spesso tre di fila.</summary>
-    public static readonly TimeSpan Attesa = TimeSpan.FromSeconds(4);
+    public static readonly TimeSpan Attesa = TimeSpan.FromSeconds(1.5);
+
+    /// <summary>Se il NAS non risponde si riprova ad ascoltarlo sempre più di rado, fino a questo.</summary>
+    public static readonly TimeSpan PausaMassimaAscolto = TimeSpan.FromSeconds(15);
 
     public static readonly TimeSpan OgniTanto = TimeSpan.FromMinutes(10);
 
@@ -32,6 +37,7 @@ public sealed class Sincronizzazione : IDisposable
     private readonly System.Threading.Timer attesa;
     private readonly System.Threading.Timer periodico;
     private bool chiuso;
+    private CancellationTokenSource? ascolto;
 
     public Sincronizzazione(Motore motore)
     {
@@ -55,6 +61,98 @@ public sealed class Sincronizzazione : IDisposable
         if (!Abbinato) return;
         periodico.Change(OgniTanto, OgniTanto);
         Sfondo("avvio");
+        IniziaAscolto();
+    }
+
+    private void IniziaAscolto()
+    {
+        FermaAscolto();
+        var nuovo = new CancellationTokenSource();
+        ascolto = nuovo;
+        _ = Task.Run(() => AscoltaAsync(nuovo.Token));
+    }
+
+    private void FermaAscolto()
+    {
+        var vecchio = Interlocked.Exchange(ref ascolto, null);
+        if (vecchio == null) return;
+        vecchio.Cancel();
+        vecchio.Dispose();
+    }
+
+    /// <summary>
+    /// Il campanello: una domanda al NAS che resta aperta finché qualcuno non scrive
+    /// (o per 20 secondi, poi si rifà). Quando il NAS ha un diario che questo computer
+    /// non ha ancora, si sincronizza subito: così il pasto scritto sul telefono compare
+    /// qui in un paio di secondi, e la pagina lo vede al suo controllo successivo.
+    /// </summary>
+    private async Task AscoltaAsync(CancellationToken ferma)
+    {
+        var pausa = TimeSpan.Zero;
+        var muto = false;
+        while (!ferma.IsCancellationRequested)
+        {
+            try
+            {
+                var indirizzo = Indirizzo;
+                var token = motore.Impostazioni.NasToken;
+                if (indirizzo == null || string.IsNullOrEmpty(token)) return;
+                var esito = await client.NovitaAsync(indirizzo, token, motore.Impostazioni.NasBase, annulla: ferma).ConfigureAwait(false);
+                if (!esito.Ok && esito.Codice == "indirizzo")
+                {
+                    // Un NAS col server di prima, senza campanello: si chiede "c'è niente?"
+                    // ogni quindici secondi con una sincronizzazione, come si poteva fare prima.
+                    await Task.Delay(TimeSpan.FromSeconds(15), ferma).ConfigureAwait(false);
+                    await AdessoAsync("controllo", ferma).ConfigureAwait(false);
+                    continue;
+                }
+                if (!esito.Ok)
+                {
+                    if (esito.Codice == "non_abbinato")
+                    {
+                        // La sincronizzazione butta il token e lo dice alla pagina.
+                        await AdessoAsync("controllo", ferma).ConfigureAwait(false);
+                        return;
+                    }
+                    if (!muto) Log.Avviso("il NAS non risponde: lo riascolto fra poco (" + esito.Errore + ")");
+                    muto = true;
+                    pausa = pausa == TimeSpan.Zero
+                        ? TimeSpan.FromSeconds(5)
+                        : TimeSpan.FromTicks(Math.Min(pausa.Ticks * 2, PausaMassimaAscolto.Ticks));
+                    await Task.Delay(pausa, ferma).ConfigureAwait(false);
+                    continue;
+                }
+                // Il NAS è appena tornato: quello che hai scritto nel frattempo parte
+                // subito, senza aspettare la prossima modifica.
+                var eraGiu = muto;
+                if (muto) Log.Info("il NAS risponde di nuovo");
+                muto = false;
+                pausa = TimeSpan.Zero;
+                // La base si rilegge adesso: se intanto questo computer ha sincronizzato
+                // da sé, la revisione nuova è la sua e non c'è niente da prendere.
+                if (eraGiu || (Json.Lungo(esito.Corpo?["revisione"]) is long r && r != motore.Impostazioni.NasBase))
+                {
+                    await AdessoAsync(eraGiu ? "NAS tornato" : "dal NAS", ferma).ConfigureAwait(false);
+                }
+                await Task.Delay(TimeSpan.FromMilliseconds(500), ferma).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (ferma.IsCancellationRequested)
+            {
+                return;
+            }
+            catch (Exception e)
+            {
+                Log.Errore("ascolto del NAS interrotto, riprendo fra poco", e);
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(10), ferma).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
+            }
+        }
     }
 
     /// <summary>La pagina ha salvato: fra qualche secondo si manda al NAS.</summary>
@@ -68,6 +166,7 @@ public sealed class Sincronizzazione : IDisposable
     public void Chiudendo()
     {
         chiuso = true;
+        FermaAscolto();
         attesa.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
         periodico.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
         if (!Abbinato) return;
@@ -216,6 +315,7 @@ public sealed class Sincronizzazione : IDisposable
         Log.Info("computer abbinato al NAS (" + indirizzo + ")");
         periodico.Change(OgniTanto, OgniTanto);
         var prima = await AdessoAsync("appena abbinato").ConfigureAwait(false);
+        IniziaAscolto();
         if (prima["errore"] != null) return prima;
         return new JsonObject { ["ok"] = true, ["cambiato"] = prima["cambiato"]?.DeepClone(), ["stato"] = PerLaPagina() };
     }
@@ -224,6 +324,7 @@ public sealed class Sincronizzazione : IDisposable
     public JsonObject Stacca()
     {
         motore.AggiornaImpostazioni(i => { i.NasToken = ""; i.NasBase = -1; });
+        FermaAscolto();
         periodico.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
         UltimaRiuscita = null;
         UltimoErrore = null;
@@ -257,6 +358,7 @@ public sealed class Sincronizzazione : IDisposable
 
     public void Dispose()
     {
+        FermaAscolto();
         attesa.Dispose();
         periodico.Dispose();
         unaAllaVolta.Dispose();

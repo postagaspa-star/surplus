@@ -986,7 +986,7 @@
     if (statoNas.errore) {
       riquadro.appendChild(el('div', { class: 'piccolo rosso', style: 'margin-top:6px', testo: statoNas.errore }));
     }
-    riquadro.appendChild(el('div', { class: 'minuscolo', style: 'margin-top:6px', testo: 'Si sincronizza da solo: all\'avvio, dopo ogni modifica e alla chiusura. Quello che scrivi senza NAS acceso parte alla prima occasione.' }));
+    riquadro.appendChild(el('div', { class: 'minuscolo', style: 'margin-top:6px', testo: 'Si sincronizza da solo: quello che scrivi sul telefono compare qui in un paio di secondi, e viceversa. Quello che scrivi senza NAS acceso parte appena torna.' }));
     riquadro.appendChild(el('div', { class: 'pulsanti', style: 'margin-top:10px' }, [
       el('button', {
         class: 'pulsante contorno', type: 'button', testo: 'Sincronizza adesso',

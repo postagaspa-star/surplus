@@ -214,7 +214,9 @@
     document.getElementById('app').removeAttribute('aria-busy');
     orologio();
     setInterval(orologio, 20000);
-    setInterval(guardaSeIlNasHaScritto, 30000);
+    // Il programma sta in ascolto del NAS e tiene il diario aggiornato: qui basta
+    // guardare spesso un numero (è una domanda al programma, non alla rete).
+    setInterval(guardaSeIlNasHaScritto, 1500);
     adattaZoom();
     radice.addEventListener('resize', adattaZoom);
     disegnaBarra();

@@ -62,6 +62,17 @@ interface SyncGateway {
      */
     suspend fun tenuto() = Unit
 
+    /**
+     * Aspetta che l'altro apparecchio scriva qualcosa: true appena il NAS ha un
+     * diario che questo telefono non ha ancora, false se il tempo d'attesa è finito
+     * senza novità. Lancia se il NAS non risponde. Senza NAS non c'è niente da
+     * aspettare: si dorme e basta.
+     */
+    suspend fun attendiNovita(): Boolean {
+        kotlinx.coroutines.delay(5_000)
+        return false
+    }
+
     fun isActive(): Boolean
 }
 

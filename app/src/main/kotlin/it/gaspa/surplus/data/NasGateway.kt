@@ -86,6 +86,28 @@ class NasGateway(
         impostazioni.salvaNas(base = revisione)
     }
 
+    override suspend fun attendiNovita(): Boolean {
+        val s = impostazioni.current().also { ultime = it }
+        if (!s.nasAbbinato) {
+            kotlinx.coroutines.delay(5_000)
+            return false
+        }
+        val esito = Nas.novita(s.nasIndirizzo, s.nasToken, s.nasBase)
+        esito.onFailure { e ->
+            if (e is HttpFailure && e.code == 404) {
+                // Un NAS con il server di prima, che il campanello non ce l'ha: si
+                // chiede "c'è niente?" ogni tanto, come prima, con una sincronizzazione.
+                kotlinx.coroutines.delay(15_000)
+                return true
+            }
+            if (e is HttpFailure && e.code == 401) impostazioni.salvaNas(token = "", base = -1L)
+            throw e
+        }
+        // Rilegge la base adesso: se nel frattempo il telefono stesso ha sincronizzato,
+        // la revisione nuova è la sua e non c'è niente da andare a prendere.
+        return esito.getOrThrow() != impostazioni.current().nasBase
+    }
+
     /** Abbina questo telefono con un codice preso dal NAS. */
     suspend fun abbina(indirizzoScritto: String, codice: String): Result<Unit> {
         val indirizzo = Nas.normalizza(indirizzoScritto)

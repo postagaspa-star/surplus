@@ -1,7 +1,7 @@
 # Surplus
 
 ![Platform](https://img.shields.io/badge/platform-Android%208.0%2B-3DDC84?logo=android&logoColor=white)
-![Version](https://img.shields.io/badge/version-2.7.2-14532D)
+![Version](https://img.shields.io/badge/version-2.7.3-14532D)
 ![Privacy](https://img.shields.io/badge/data-only%20on%20your%20own%20devices-blue)
 
 **Android app for tracking food and training through a calorie surplus** (lean bulking). Built to be fast and usable every day rather than a nutritionist-grade tracker: consistency matters more than being accurate to the gram.
@@ -66,6 +66,8 @@ That last line is what makes deletions work. Without the base, "missing" and "ne
 
 Each device tells the server which merged diary it actually kept (its *base*), instead of the server assuming the last reply arrived. If the Wi-Fi drops mid-reply, or you log a meal while the reply is on its way, the device keeps its own copy, sends again shortly, and nothing the other side wrote looks "deleted". Two devices syncing at the same moment are handled one at a time, so neither overwrites the other.
 
+While an app is open it also listens to the NAS, so the two stay in step in real time. It asks `GET /api/novita` with the revision it has; the server holds the request open (up to 20 seconds) and answers the moment another device writes something, and the app then syncs. A meal logged on the phone shows up on the computer in about two seconds, and the other way round. When the app goes to the background the listening stops, so it costs no battery. If the NAS doesn't answer, the apps retry every few seconds (at most every fifteen), and as soon as it is back they send whatever you wrote meanwhile.
+
 Both apps keep working with the NAS switched off — the local file is still the truth for that device — and send what you wrote at the first opportunity. A merged diary that would drop more than half the entries is refused rather than saved.
 
 Both apps also update themselves from that server, so you install them by hand once. The Windows package is only installed if it carries a valid signature (ECDSA P-256, private key never in this repository); the Android one is protected by Android itself, which refuses an update signed with a different key than the installed app.
@@ -95,7 +97,7 @@ Something leaves the phone in four cases only, each one started by you:
 
 ## Source code
 
-The code is here, in this repository: a native Android project in **Kotlin + Jetpack Compose**, with no database (data goes into a JSON file written safely), plus the Windows program and the NAS server. 482 automated tests in all — 164 on Android, 202 on the shared interface logic, 79 on the Windows program, 37 on the server.
+The code is here, in this repository: a native Android project in **Kotlin + Jetpack Compose**, with no database (data goes into a JSON file written safely), plus the Windows program and the NAS server. 488 automated tests in all — 164 on Android, 202 on the shared interface logic, 79 on the Windows program, 43 on the server.
 
 ```
 app/src/main/kotlin/it/gaspa/surplus/

@@ -22,7 +22,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import it.gaspa.surplus.aggiornamento.Aggiornatore
 import it.gaspa.surplus.aggiornamento.AppInPrimoPiano
@@ -53,6 +55,13 @@ class MainActivity : ComponentActivity() {
         setContent {
             SurplusTheme {
                 SurplusRoot()
+            }
+        }
+        // Finché l'app è sullo schermo resta in ascolto del NAS: quello che scrivi sul
+        // computer compare qui in un paio di secondi. In secondo piano si ferma da sola.
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                AppStore.get(applicationContext).restaInAscolto()
             }
         }
     }

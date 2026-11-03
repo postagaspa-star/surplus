@@ -91,6 +91,26 @@ object Nas {
         Unione(json.decodeFromJsonElement(AppData.serializer(), unito), revisione)
     }
 
+    /**
+     * Il campanello: risponde appena il diario del NAS non è più alla [revisione]
+     * che ha il telefono, o dopo [attesaSecondi] se nessuno ha scritto niente.
+     * Restituisce la revisione del NAS. Il diario non viaggia: per quello c'è [sincronizza].
+     */
+    suspend fun novita(indirizzo: String, token: String, revisione: Long, attesaSecondi: Int = ATTESA_CAMPANELLO_S): Result<Long> =
+        runCatching {
+            val radice = normalizza(indirizzo) ?: throw IOException("indirizzo")
+            val risposta = Http.getJson(
+                "$radice/api/novita?revisione=${revisione.coerceAtLeast(0)}&attesa=$attesaSecondi",
+                mapOf("User-Agent" to UA, "Authorization" to "Bearer $token"),
+                // Il NAS può tenere la richiesta aperta fino all'attesa intera: un po' di margine.
+                timeoutMs = (attesaSecondi + 15) * 1000,
+            )
+            Json.parseToJsonElement(risposta).jsonObject["revisione"]?.jsonPrimitive?.content?.toLongOrNull()
+                ?: throw IOException("il NAS non ha detto la revisione")
+        }
+
+    const val ATTESA_CAMPANELLO_S = 20
+
     /** La versione dell'app pubblicata sul NAS, se è più nuova di quella installata. */
     suspend fun versioneAndroid(indirizzo: String, codiceMio: Int): Result<VersioneDaScaricare?> = runCatching {
         val radice = normalizza(indirizzo) ?: throw IOException("indirizzo")

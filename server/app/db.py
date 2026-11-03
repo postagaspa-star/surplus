@@ -118,6 +118,12 @@ def leggi_stato(conn: sqlite3.Connection) -> tuple[dict[str, Any] | None, int]:
         return None, int(riga["revisione"])
 
 
+def leggi_revisione(conn: sqlite3.Connection) -> int:
+    """Solo il numero della revisione: chi aspetta le novità non ha bisogno del diario intero."""
+    riga = conn.execute("SELECT revisione FROM stato WHERE id = 1").fetchone()
+    return int(riga["revisione"]) if riga else 0
+
+
 def scrivi_stato(conn: sqlite3.Connection, imp: Impostazioni, dati: dict[str, Any]) -> int:
     """Scrive il diario nuovo e restituisce la revisione. Prima mette da parte quello di adesso."""
     testo = json.dumps(dati, ensure_ascii=False, separators=(",", ":"))

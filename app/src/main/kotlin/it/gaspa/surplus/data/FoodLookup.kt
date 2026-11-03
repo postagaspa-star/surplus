@@ -71,6 +71,35 @@ internal object Http {
         }
 
     /**
+     * GET con intestazioni (per esempio il permesso del NAS). Come [postJson], in
+     * caso di errore lancia [HttpFailure] col codice: chi chiama deve poter
+     * distinguere "non abbinato" da "NAS spento".
+     */
+    suspend fun getJson(
+        url: String,
+        headers: Map<String, String>,
+        timeoutMs: Int,
+    ): String = withContext(Dispatchers.IO) {
+        val conn = (URL(url).openConnection() as HttpURLConnection).apply {
+            requestMethod = "GET"
+            connectTimeout = 10_000
+            readTimeout = timeoutMs
+            headers.forEach { (k, v) -> setRequestProperty(k, v) }
+        }
+        try {
+            val code = conn.responseCode
+            if (code in 200..299) {
+                conn.inputStream.bufferedReader().use(BufferedReader::readText)
+            } else {
+                val err = conn.errorStream?.bufferedReader()?.use(BufferedReader::readText).orEmpty()
+                throw HttpFailure(code, err)
+            }
+        } finally {
+            conn.disconnect()
+        }
+    }
+
+    /**
      * POST JSON. In caso di errore legge anche il corpo della risposta: è lì che
      * i servizi scrivono "chiave non valida" o "credito esaurito", e senza quel
      * testo l'utente non saprebbe cosa ha sbagliato.

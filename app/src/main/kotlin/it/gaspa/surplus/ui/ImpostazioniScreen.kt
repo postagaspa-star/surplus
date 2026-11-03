@@ -259,8 +259,8 @@ fun ImpostazioniScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 else MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
-                "Si sincronizza da solo: quando apri l'app, dopo ogni modifica e quando la lasci. " +
-                    "Quello che scrivi senza NAS acceso parte alla prima occasione.",
+                "Si sincronizza da solo: quello che scrivi sul computer compare qui in un paio di secondi, " +
+                    "e viceversa. Quello che scrivi senza NAS acceso parte appena torna.",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

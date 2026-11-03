@@ -40,8 +40,8 @@ android {
         applicationId = "it.gaspa.surplus"
         minSdk = 26
         targetSdk = 35
-        versionCode = 17
-        versionName = "2.7.2"
+        versionCode = 18
+        versionName = "2.7.3"
     }
 
     signingConfigs {

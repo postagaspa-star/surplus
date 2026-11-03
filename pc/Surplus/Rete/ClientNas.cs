@@ -21,7 +21,7 @@ public sealed record EsitoNas(bool Ok, JsonObject? Corpo, string? Errore = null,
 /// </summary>
 public sealed class ClientNas
 {
-    private const string SenzaRete = "Il NAS non risponde. Controlla che sia accesso e che il computer sia sulla rete di casa.";
+    private const string SenzaRete = "Il NAS non risponde. Controlla che sia acceso e che il computer sia sulla rete di casa.";
 
     private static readonly HttpClient Http = Crea();
 
@@ -80,6 +80,17 @@ public sealed class ClientNas
         return ChiamaAsync(HttpMethod.Post, indirizzo, "api/sincronizza", corpo, token, annulla);
     }
 
+    /// <summary>
+    /// Il campanello: risponde appena il diario del NAS non è più alla <paramref name="revisione"/>
+    /// di questo computer, o dopo <paramref name="attesaSecondi"/> se nessuno ha scritto niente.
+    /// Non scrive nel log quando il NAS non risponde: chi ascolta lo fa di continuo, e lo
+    /// dice lui una volta sola.
+    /// </summary>
+    public Task<EsitoNas> NovitaAsync(string indirizzo, string token, long revisione, int attesaSecondi = 20,
+                                      CancellationToken annulla = default) =>
+        ChiamaAsync(HttpMethod.Get, indirizzo, $"api/novita?revisione={Math.Max(0, revisione)}&attesa={attesaSecondi}",
+            null, token, annulla, silenzioso: true);
+
     /// <summary>Scarica un file (il pacchetto dell'aggiornamento) senza tenerlo in memoria.</summary>
     public async Task<bool> ScaricaAsync(string url, string file, CancellationToken annulla = default)
     {
@@ -100,7 +111,7 @@ public sealed class ClientNas
     }
 
     private static async Task<EsitoNas> ChiamaAsync(HttpMethod metodo, string indirizzo, string percorso,
-        JsonObject? corpo, string? token, CancellationToken annulla)
+        JsonObject? corpo, string? token, CancellationToken annulla, bool silenzioso = false)
     {
         var radice = Normalizza(indirizzo);
         if (radice == null) return EsitoNas.Guasto("L'indirizzo del NAS non è scritto bene.", "indirizzo");
@@ -130,7 +141,7 @@ public sealed class ClientNas
         }
         catch (Exception e) when (e is HttpRequestException or TaskCanceledException)
         {
-            Motore.Log.Errore("chiamata al NAS non riuscita (" + percorso + ")", e);
+            if (!silenzioso) Motore.Log.Errore("chiamata al NAS non riuscita (" + percorso + ")", e);
             return EsitoNas.Guasto(SenzaRete, "rete");
         }
     }
