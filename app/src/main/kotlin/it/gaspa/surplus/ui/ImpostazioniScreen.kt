@@ -39,6 +39,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,6 +55,9 @@ import it.gaspa.surplus.data.ReminderCfg
 import it.gaspa.surplus.data.ReminderKey
 import it.gaspa.surplus.data.Settings
 import it.gaspa.surplus.data.SyncState
+import it.gaspa.surplus.aggiornamento.Aggiornatore
+import it.gaspa.surplus.aggiornamento.testo
+import kotlinx.coroutines.launch
 import java.util.Locale
 
 private val dayLetters = listOf("L", "M", "M", "G", "V", "S", "D")
@@ -78,6 +82,9 @@ fun ImpostazioniScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
     var aiKey by remember(settings) { mutableStateOf(settings.aiApiKey) }
     var aiModel by remember(settings) { mutableStateOf(settings.aiModel) }
     var chiaveVisibile by remember { mutableStateOf(false) }
+    // "Cerca aggiornamenti": null = non ancora premuto, "" = sta cercando.
+    var esitoAggiornamento by remember { mutableStateOf<String?>(null) }
+    val ambito = rememberCoroutineScope()
     var pickerFor by remember { mutableStateOf<ReminderKey?>(null) }
     var nasIndirizzo by remember(settings) { mutableStateOf(settings.nasIndirizzo) }
     var nasCodice by remember { mutableStateOf("") }
@@ -446,6 +453,29 @@ fun ImpostazioniScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
         )
+        // Senza aspettare di lasciare l'app: guarda adesso sul NAS e, se c'è una
+        // versione nuova, la scarica e la installa subito.
+        OutlinedButton(
+            onClick = {
+                esitoAggiornamento = ""
+                ambito.launch {
+                    val esito = runCatching { Aggiornatore(context.applicationContext).controlla(forza = true) }
+                    esitoAggiornamento = esito.getOrNull()?.testo()
+                        ?: "Non sono riuscito a controllare. Riprova tra poco."
+                }
+            },
+            enabled = esitoAggiornamento != "",
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text(if (esitoAggiornamento == "") "Sto cercando…" else "Cerca aggiornamenti") }
+        esitoAggiornamento?.takeIf { it.isNotEmpty() }?.let {
+            Text(
+                it,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
     }
 
     if (nasStacca) {

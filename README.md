@@ -1,7 +1,7 @@
 # Surplus
 
 ![Platform](https://img.shields.io/badge/platform-Android%208.0%2B-3DDC84?logo=android&logoColor=white)
-![Version](https://img.shields.io/badge/version-2.7.3-14532D)
+![Version](https://img.shields.io/badge/version-2.7.4-14532D)
 ![Privacy](https://img.shields.io/badge/data-only%20on%20your%20own%20devices-blue)
 
 **Android app for tracking food and training through a calorie surplus** (lean bulking). Built to be fast and usable every day rather than a nutritionist-grade tracker: consistency matters more than being accurate to the gram.
@@ -70,7 +70,7 @@ While an app is open it also listens to the NAS, so the two stay in step in real
 
 Both apps keep working with the NAS switched off — the local file is still the truth for that device — and send what you wrote at the first opportunity. A merged diary that would drop more than half the entries is refused rather than saved.
 
-Both apps also update themselves from that server, so you install them by hand once. The Windows package is only installed if it carries a valid signature (ECDSA P-256, private key never in this repository); the Android one is protected by Android itself, which refuses an update signed with a different key than the installed app.
+Both apps also update themselves from that server, so you install them by hand once. They check on their own, and Settings has a **Check for updates** button that looks right away; on Windows, **Install now** closes Surplus, updates it and reopens it. The Windows package is only installed if it carries a valid signature (ECDSA P-256, private key never in this repository); the Android one is protected by Android itself, which refuses an update signed with a different key than the installed app.
 
 ## Download
 
@@ -97,7 +97,7 @@ Something leaves the phone in four cases only, each one started by you:
 
 ## Source code
 
-The code is here, in this repository: a native Android project in **Kotlin + Jetpack Compose**, with no database (data goes into a JSON file written safely), plus the Windows program and the NAS server. 488 automated tests in all — 164 on Android, 202 on the shared interface logic, 79 on the Windows program, 43 on the server.
+The code is here, in this repository: a native Android project in **Kotlin + Jetpack Compose**, with no database (data goes into a JSON file written safely), plus the Windows program and the NAS server. 495 automated tests in all — 164 on Android, 202 on the shared interface logic, 84 on the Windows program, 45 on the server.
 
 ```
 app/src/main/kotlin/it/gaspa/surplus/

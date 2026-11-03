@@ -15,13 +15,17 @@ public sealed class ContestoSurplus : ApplicationContext
     private readonly Motore.Sincronizzazione? sincronizzazione;
     private readonly Percorsi percorsi;
     private readonly Istanza istanza;
+    private readonly Motore.ControlloAggiornamenti? aggiornamenti;
     private FinestraSurplus? finestra;
 
     public ContestoSurplus(Motore.Motore motore, Percorsi percorsi, Istanza istanza, int? esciDopoSecondi,
-                           Motore.Sincronizzazione? sincronizzazione = null)
+                           Motore.Sincronizzazione? sincronizzazione = null,
+                           Motore.ControlloAggiornamenti? aggiornamenti = null)
     {
         this.motore = motore;
         this.sincronizzazione = sincronizzazione;
+        this.aggiornamenti = aggiornamenti;
+        if (aggiornamenti != null) aggiornamenti.ChiudiPerInstallare = ChiudiPerInstallare;
         this.percorsi = percorsi;
         this.istanza = istanza;
 
@@ -40,7 +44,7 @@ public sealed class ContestoSurplus : ApplicationContext
 
     private void Apri()
     {
-        var f = new FinestraSurplus(new Ponte(motore, sincronizzazione), Path.Combine(AppContext.BaseDirectory, "ui"), percorsi.Finestra);
+        var f = new FinestraSurplus(new Ponte(motore, sincronizzazione, aggiornamenti), Path.Combine(AppContext.BaseDirectory, "ui"), percorsi.Finestra);
         f.FormClosed += (_, _) =>
         {
             finestra = null;
@@ -48,6 +52,33 @@ public sealed class ContestoSurplus : ApplicationContext
         };
         finestra = f;
         f.Show();
+    }
+
+    /// <summary>
+    /// "Installa adesso": si chiude la finestra come con la X (il diario si salva e si
+    /// sincronizza), poi Program installa la versione nuova e la riapre.
+    /// </summary>
+    private void ChiudiPerInstallare()
+    {
+        var f = finestra;
+        if (f == null || f.IsDisposed)
+        {
+            ExitThread();
+            return;
+        }
+        try
+        {
+            // Un attimo di respiro: la pagina fa in tempo a ricevere la risposta e a dirlo.
+            f.BeginInvoke(async () =>
+            {
+                await Task.Delay(600);
+                if (!f.IsDisposed) f.Close();
+            });
+        }
+        catch (InvalidOperationException)
+        {
+            // la finestra si sta già chiudendo
+        }
     }
 
     private void PortaDavanti()

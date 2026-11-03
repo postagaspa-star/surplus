@@ -11,8 +11,8 @@
     <AssemblyName>Surplus</AssemblyName>
     <AssemblyTitle>Surplus</AssemblyTitle>
     <Product>Surplus</Product>
-    <Version>1.1.3</Version>
-    <FileVersion>1.1.3.0</FileVersion>
+    <Version>1.1.4</Version>
+    <FileVersion>1.1.4.0</FileVersion>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
     <SatelliteResourceLanguages>it</SatelliteResourceLanguages>

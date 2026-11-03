@@ -149,18 +149,17 @@ internal static class Program
 
         motore.DopoSalvataggio = sincronizzazione.DopoUnSalvataggio;
         var aggiornatore = new Aggiornatore();
-        sincronizzazione.Aggiornamento = aggiornatore.PerLaPagina;
-        sincronizzazione.Avvia();
-
         // L'aggiornamento si cerca solo quando Surplus gira dal pacchetto: in
         // sviluppo sostituirebbe la cartella di lavoro con quella del NAS.
-        using var ferma = new CancellationTokenSource();
-        if (Installazione.ÈPacchetto && !opzioni.NonInstallare)
-        {
-            _ = CercaAggiornamentiAsync(aggiornatore, sincronizzazione, percorsi, ferma.Token);
-        }
+        var aggiornamenti = new ControlloAggiornamenti(aggiornatore, () => sincronizzazione.Indirizzo,
+            percorsi.Aggiornamento, attivo: Installazione.ÈPacchetto && !opzioni.NonInstallare);
+        sincronizzazione.Aggiornamento = aggiornamenti.PerLaPagina;
+        sincronizzazione.Avvia();
 
-        Application.Run(new ContestoSurplus(motore, percorsi, istanza, opzioni.EsciDopoSecondi, sincronizzazione));
+        using var ferma = new CancellationTokenSource();
+        _ = aggiornamenti.InSottofondoAsync(ferma.Token);
+
+        Application.Run(new ContestoSurplus(motore, percorsi, istanza, opzioni.EsciDopoSecondi, sincronizzazione, aggiornamenti));
         ferma.Cancel();
 
         // L'ultima sincronizzazione a finestra chiusa: se il NAS non risponde si
@@ -170,42 +169,11 @@ internal static class Program
         var pronta = aggiornatore.Installabile ?? Aggiornatore.GiaPronta(percorsi.Aggiornamento, Versione.Codice, DateTimeOffset.Now);
         if (pronta != null && Installazione.ÈPacchetto && !opzioni.NonInstallare)
         {
-            Sostituzione.Avvia(pronta, AppContext.BaseDirectory, percorsi.Cartella, riapri: false);
+            // Dopo "Installa adesso" Surplus si riapre da solo; alla chiusura normale no.
+            Sostituzione.Avvia(pronta, AppContext.BaseDirectory, percorsi.Cartella, riapri: aggiornamenti.Riapri);
         }
 
         Log.Info("Surplus chiuso");
         return 0;
-    }
-
-    /// <summary>
-    /// Mezzo minuto dopo l'avvio, e poi ogni sei ore: c'è una versione nuova sul
-    /// NAS? Se sì la scarica e la prepara in sottofondo; si installerà alla
-    /// chiusura. Qualunque cosa vada storta resta nel log e si riprova dopo.
-    /// </summary>
-    private static async Task CercaAggiornamentiAsync(Aggiornatore aggiornatore, Sincronizzazione sincronizzazione,
-                                                      Percorsi percorsi, CancellationToken ferma)
-    {
-        try
-        {
-            var attesa = Aggiornatore.PrimoControllo;
-            while (!ferma.IsCancellationRequested)
-            {
-                await Task.Delay(attesa, ferma).ConfigureAwait(false);
-                attesa = Aggiornatore.OgniTanto;
-                var indirizzo = sincronizzazione.Indirizzo;
-                if (indirizzo == null) continue;
-                if (await aggiornatore.ControllaAsync(indirizzo, ferma).ConfigureAwait(false) is not VersioneNuova v) continue;
-                Log.Info($"sul NAS c'è la versione {v.Nome}: la scarico");
-                await aggiornatore.PreparaAsync(indirizzo, percorsi.Aggiornamento, DateTimeOffset.Now, ferma).ConfigureAwait(false);
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            // Surplus si è chiuso: niente da dire.
-        }
-        catch (Exception e)
-        {
-            Log.Errore("controllo degli aggiornamenti non riuscito", e);
-        }
     }
 }

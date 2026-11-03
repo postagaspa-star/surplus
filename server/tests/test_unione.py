@@ -152,3 +152,21 @@ def test_conta_racconta_cosa_c_e_dentro():
     assert numeri["entries"] == 3
     assert numeri["giorni"] == 2
     assert numeri["waterByDate"] == 1
+
+
+def test_apparecchio_nuovo_non_azzera_il_profilo_vero():
+    # Il computer appena abbinato ha il profilo vuoto di fabbrica: non deve
+    # cancellare età, peso e obiettivi che il NAS ha dal telefono.
+    vero = {"nome": "", "pesoKg": 70.0, "altezzaCm": 180, "isConfigured": True}
+    vuoto = {"nome": "", "pesoKg": 0, "altezzaCm": 0, "isConfigured": False}
+    nas = diario([voce("cena", "2026-11-03")], profile=vero)
+    pc = diario([voce("colazione", "2026-11-03")], profile=vuoto)
+    unito, _ = unisci(None, pc, nas)
+    assert unito["profile"] == vero
+    assert sorted(v["id"] for v in unito["entries"]) == ["cena", "colazione"]
+
+
+def test_profilo_vero_del_dispositivo_resta_se_il_nas_e_vuoto():
+    vero = {"pesoKg": 70.0, "isConfigured": True}
+    unito, _ = unisci(None, diario([], profile=vero), diario([], profile={"pesoKg": 0, "isConfigured": False}))
+    assert unito["profile"] == vero

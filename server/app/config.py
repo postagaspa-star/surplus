@@ -6,7 +6,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-VERSIONE = "1.2.0"
+VERSIONE = "1.3.0"
 
 CIFRE_CODICE = 8
 DURATA_CODICE_MINUTI = 15

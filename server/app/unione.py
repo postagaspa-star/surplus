@@ -123,11 +123,15 @@ def unisci(base: dict[str, Any] | None, mio: dict[str, Any] | None,
 
     # Il profilo campo per campo: cambiare il peso sul computer non deve
     # riportare indietro l'altezza scritta sul telefono.
-    unito["profile"] = _unisci_insieme(
-        base.get("profile") if isinstance(base.get("profile"), dict) else {},
-        mio.get("profile") if isinstance(mio.get("profile"), dict) else {},
-        suo.get("profile") if isinstance(suo.get("profile"), dict) else {},
-        conflitti, "profile")
+    profilo_base = base.get("profile") if isinstance(base.get("profile"), dict) else {}
+    profilo_mio = mio.get("profile") if isinstance(mio.get("profile"), dict) else {}
+    profilo_suo = suo.get("profile") if isinstance(suo.get("profile"), dict) else {}
+    if not profilo_base and profilo_suo.get("isConfigured") and not profilo_mio.get("isConfigured"):
+        # Un apparecchio nuovo alla prima sincronizzazione: il suo profilo è quello
+        # vuoto di fabbrica. Senza base "vince chi sincronizza", e il profilo vero
+        # del NAS (età, peso, obiettivi) verrebbe azzerato. Quello vuoto non conta.
+        profilo_mio = profilo_suo
+    unito["profile"] = _unisci_insieme(profilo_base, profilo_mio, profilo_suo, conflitti, "profile")
 
     for nome, chiave in ELENCHI_CON_ID.items():
         unione = _unisci_insieme(

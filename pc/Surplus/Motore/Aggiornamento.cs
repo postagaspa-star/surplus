@@ -72,6 +72,9 @@ public sealed class Aggiornatore
 
     public Pronta? Installabile { get; private set; }
 
+    /// <summary>Falso se all'ultima domanda il NAS non ha risposto (per non dire "hai già l'ultima").</summary>
+    public bool UltimoControlloRiuscito { get; private set; }
+
     public static ECDsa ChiavePubblica()
     {
         var ecdsa = ECDsa.Create();
@@ -114,6 +117,7 @@ public sealed class Aggiornatore
     public async Task<VersioneNuova?> ControllaAsync(string indirizzo, CancellationToken annulla = default)
     {
         var esito = await client.VersioneAsync(indirizzo, annulla).ConfigureAwait(false);
+        UltimoControlloRiuscito = esito.Ok;
         if (!esito.Ok) return null;
         var pc = esito.Corpo?["pc"] as JsonObject;
         var codice = Json.Intero(pc?["codice"]);

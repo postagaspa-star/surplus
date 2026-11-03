@@ -909,14 +909,70 @@
       ]),
     ]));
 
-    app.appendChild(el('div', { class: 'minuscolo', style: 'text-align:center;padding:14px 0' , testo: 'Surplus per il computer ' + (a.stato.versioneProgramma || '') + (statoNas && statoNas.abbinato ? ' — diario su questo computer e sul NAS' : ' — dati salvati su questo computer') }));
-    const agg = statoNas && statoNas.aggiornamento;
-    if (agg && agg.pronta) {
-      app.appendChild(el('div', { class: 'minuscolo verde', style: 'text-align:center', testo: 'La versione ' + agg.nuova + ' è pronta: si installa da sola quando chiudi Surplus.' }));
-    } else if (agg && agg.errore) {
-      app.appendChild(el('div', { class: 'minuscolo rosso', style: 'text-align:center', testo: agg.errore }));
-    }
+    rigaVersione = el('div', { class: 'minuscolo', style: 'text-align:center;padding:14px 0 8px', testo: testoVersione() });
+    app.appendChild(rigaVersione);
+    riquadroAggiornamenti = el('div', { style: 'text-align:center;padding-bottom:8px' });
+    app.appendChild(riquadroAggiornamenti);
+    disegnaAggiornamenti(riquadroAggiornamenti);
     app.appendChild(el('div', { class: 'minuscolo', style: 'text-align:center;padding-bottom:20px', testo: 'I promemoria degli spuntini restano sul telefono.' }));
+  }
+
+  // ---- aggiornamenti del programma ----
+
+  /** La frase dell'ultimo "Cerca aggiornamenti" ('' = sta cercando, null = mai premuto). */
+  let esitoAggiornamenti = null;
+  let riquadroAggiornamenti = null;
+  let rigaVersione = null;
+
+  function testoVersione() {
+    return 'Surplus per il computer ' + (A().stato.versioneProgramma || '') +
+      (statoNas && statoNas.abbinato ? ' — diario su questo computer e sul NAS' : ' — dati salvati su questo computer');
+  }
+
+  function disegnaAggiornamenti(riquadro) {
+    const a = A();
+    const el = a.el;
+    riquadro.textContent = '';
+    const agg = statoNas && statoNas.aggiornamento;
+    const pronta = !!(agg && agg.pronta);
+    if (pronta) {
+      riquadro.appendChild(el('div', { class: 'minuscolo verde', style: 'margin-bottom:8px', testo: 'La versione ' + agg.nuova + ' è pronta. Si installa quando chiudi Surplus, oppure subito.' }));
+      riquadro.appendChild(el('button', {
+        class: 'pulsante', type: 'button', testo: 'Installa adesso',
+        click: async (e) => {
+          const b = e.currentTarget;
+          b.disabled = true;
+          b.textContent = 'Sto installando…';
+          const r = await Api.post('/locale/aggiornamenti/installa');
+          if (!r.ok) {
+            a.avviso(r.errore, true);
+            b.disabled = false;
+            b.textContent = 'Installa adesso';
+            return;
+          }
+          a.avviso('Surplus si chiude e si riapre da solo tra qualche secondo.');
+        },
+      }));
+      return;
+    }
+    riquadro.appendChild(el('button', {
+      class: 'pulsante contorno', type: 'button',
+      testo: esitoAggiornamenti === '' ? 'Sto cercando…' : 'Cerca aggiornamenti',
+      disabled: esitoAggiornamenti === '',
+      click: async () => {
+        esitoAggiornamenti = '';
+        disegnaAggiornamenti(riquadro);
+        const r = await Api.post('/locale/aggiornamenti/cerca');
+        esitoAggiornamenti = r.ok ? (r.dati.testo || '') : (r.errore || 'Non sono riuscito a controllare. Riprova tra poco.');
+        if (r.ok && r.dati.stato && statoNas) statoNas.aggiornamento = r.dati.stato;
+        if (riquadro.isConnected) disegnaAggiornamenti(riquadro);
+      },
+    }));
+    const frase = esitoAggiornamenti || (agg && agg.errore) || '';
+    if (frase) {
+      const rossa = !esitoAggiornamenti && agg && agg.errore;
+      riquadro.appendChild(el('div', { class: 'minuscolo' + (rossa ? ' rosso' : ''), style: 'margin-top:6px', testo: frase }));
+    }
   }
 
   // ---- il NAS di casa ----
@@ -929,6 +985,10 @@
     if (!r.ok) return;
     statoNas = r.dati.stato;
     if (riquadro && riquadro.isConnected) disegnaNas(riquadro);
+    // Anche il pulsante degli aggiornamenti e la riga della versione: lo stato arriva
+    // insieme a quello del NAS, e prima diceva "solo su questo computer" anche se abbinato.
+    if (riquadroAggiornamenti && riquadroAggiornamenti.isConnected) disegnaAggiornamenti(riquadroAggiornamenti);
+    if (rigaVersione && rigaVersione.isConnected) rigaVersione.textContent = testoVersione();
   }
 
   function oraDi(ms) {

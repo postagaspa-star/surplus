@@ -18,11 +18,14 @@ public sealed class Ponte
     private readonly Motore.Sincronizzazione? sincronizzazione;
     private readonly Rete.Alimenti alimenti;
     private readonly Rete.Ai ai;
+    private readonly Motore.ControlloAggiornamenti? aggiornamenti;
 
-    public Ponte(Motore.Motore motore, Motore.Sincronizzazione? sincronizzazione = null)
+    public Ponte(Motore.Motore motore, Motore.Sincronizzazione? sincronizzazione = null,
+                 Motore.ControlloAggiornamenti? aggiornamenti = null)
     {
         this.motore = motore;
         this.sincronizzazione = sincronizzazione;
+        this.aggiornamenti = aggiornamenti;
         alimenti = new Rete.Alimenti();
         ai = new Rete.Ai();
     }
@@ -115,6 +118,10 @@ public sealed class Ponte
             "nas/abbina" => ("POST", () => AbbinaNasAsync(o)),
             "nas/sincronizza" => ("POST", SincronizzaNasAsync),
             "nas/stacca" => ("POST", () => Task.FromResult(sincronizzazione?.Stacca() ?? StatoNas())),
+            "aggiornamenti/cerca" => ("POST", () => aggiornamenti?.CercaAdessoAsync()
+                ?? Task.FromResult(new JsonObject { ["ok"] = true, ["testo"] = "Questa copia di Surplus non si aggiorna da sola." })),
+            "aggiornamenti/installa" => ("POST", () => Task.FromResult(aggiornamenti?.InstallaAdesso()
+                ?? new JsonObject { ["errore"] = "Questa copia di Surplus non si aggiorna da sola.", ["codice"] = "non_pronta" })),
             "esporta" => ("POST", EsportaAsync),
             "importa" => ("POST", ImportaAsync),
             _ => null,
