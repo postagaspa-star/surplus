@@ -117,8 +117,8 @@ public sealed class Sincronizzazione : IDisposable
         InCorso = true;
         try
         {
-            var mio = motore.Dati();
-            var esito = await client.SincronizzaAsync(indirizzo, token, mio, annulla).ConfigureAwait(false);
+            var (mio, versioneMia) = motore.DatiConVersione();
+            var esito = await client.SincronizzaAsync(indirizzo, token, mio, motore.Impostazioni.NasBase, annulla).ConfigureAwait(false);
             if (!esito.Ok)
             {
                 UltimoErrore = esito.Errore;
@@ -126,18 +126,28 @@ public sealed class Sincronizzazione : IDisposable
                 {
                     // Il NAS non ci conosce più: si butta il token, così l'interfaccia
                     // chiede un codice nuovo invece di riprovare a vuoto per sempre.
-                    motore.AggiornaImpostazioni(i => i.NasToken = "");
+                    motore.AggiornaImpostazioni(i => { i.NasToken = ""; i.NasBase = -1; });
                 }
                 Log.Avviso("sincronizzazione (" + motivo + ") non riuscita: " + esito.Errore);
                 return new JsonObject { ["errore"] = esito.Errore, ["codice"] = esito.Codice, ["stato"] = PerLaPagina() };
             }
             var corpo = esito.Corpo!;
+            var revisioneUnita = Json.Lungo(corpo["revisione"]);
             Revisione = Json.Intero(corpo["revisione"]) ?? Revisione;
             var unito = corpo["dati"] as JsonObject;
             var cambiato = false;
             if (unito != null && !Uguali(unito, mio))
             {
-                var salvato = motore.Salva((JsonObject)unito.DeepClone());
+                var salvato = motore.Salva((JsonObject)unito.DeepClone(), versioneMia);
+                if (Json.Testo(salvato["codice"]) == Motore.Superato)
+                {
+                    // Hai scritto qualcosa mentre il NAS rispondeva: il diario unito non lo
+                    // contiene. Non si tiene, la base resta quella di prima e fra poco si
+                    // rimanda tutto, modifica compresa.
+                    Log.Info($"sincronizzazione ({motivo}): diario cambiato nel frattempo, si riprova");
+                    DopoUnSalvataggio();
+                    return new JsonObject { ["ok"] = true, ["saltata"] = true, ["stato"] = PerLaPagina() };
+                }
                 if (salvato["errore"] != null)
                 {
                     UltimoErrore = Json.Testo(salvato["errore"]);
@@ -149,6 +159,8 @@ public sealed class Sincronizzazione : IDisposable
                 // viene dal NAS, non c'è niente da rimandargli.
                 attesa.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
             }
+            // Il diario unito è sul disco (o era già uguale al nostro): da qui vale come base.
+            if (revisioneUnita is long r) motore.AggiornaImpostazioni(i => i.NasBase = r);
             UltimaRiuscita = DateTimeOffset.Now;
             UltimoErrore = null;
             var conflitti = Json.Lista(corpo["conflitti"]).Count;
@@ -195,7 +207,8 @@ public sealed class Sincronizzazione : IDisposable
         {
             return new JsonObject { ["errore"] = "Il NAS non ha dato il permesso. Riprova con un codice nuovo.", ["codice"] = "server" };
         }
-        if (!motore.AggiornaImpostazioni(i => { i.NasIndirizzo = indirizzo; i.NasToken = token; }))
+        // Appena abbinato non c'è ancora una base: la prima volta si somma e basta.
+        if (!motore.AggiornaImpostazioni(i => { i.NasIndirizzo = indirizzo; i.NasToken = token; i.NasBase = -1; }))
         {
             return new JsonObject { ["errore"] = "L'abbinamento non si è salvato sul disco. Riprova.", ["codice"] = "disco" };
         }
@@ -210,7 +223,7 @@ public sealed class Sincronizzazione : IDisposable
     /// <summary>Stacca questo computer: resta l'indirizzo, va via il permesso.</summary>
     public JsonObject Stacca()
     {
-        motore.AggiornaImpostazioni(i => i.NasToken = "");
+        motore.AggiornaImpostazioni(i => { i.NasToken = ""; i.NasBase = -1; });
         periodico.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
         UltimaRiuscita = null;
         UltimoErrore = null;

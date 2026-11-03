@@ -17,6 +17,7 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -29,17 +30,21 @@ from . import unione
 from .config import MASSIMO_BYTE_DIARIO, VERSIONE, Impostazioni
 from .db import (
     adesso,
+    diario_alla_revisione,
     dispositivo_da_token,
     leggi_base,
     leggi_stato,
     scrivi_base,
     scrivi_stato,
+    segna_base_dichiarata,
     segna_contatto,
 )
 
 router = APIRouter()
 
 SENZA_CACHE = {"Cache-Control": "no-store"}
+
+_una_alla_volta = threading.Lock()
 
 FILE_SCARICABILI = {
     "surplus-pc.zip": "application/zip",
@@ -59,6 +64,9 @@ class AbbinaIn(BaseModel):
 
 class SincronizzaIn(BaseModel):
     dati: dict[str, Any]
+    # La revisione dell'ultimo diario unito che il dispositivo ha davvero tenuto.
+    # Senza (app vecchie) vale la base che il server ricorda per lui.
+    base: int | None = Field(default=None, ge=0)
 
 
 def _imp(request: Request) -> Impostazioni:
@@ -122,18 +130,31 @@ def sincronizza(corpo: SincronizzaIn, request: Request,
     mio = corpo.dati
     if len(json.dumps(mio, ensure_ascii=False)) > MASSIMO_BYTE_DIARIO:
         raise HTTPException(413, "Il diario è troppo grande: qualcosa non torna, non l'ho salvato.")
-    suo, revisione = leggi_stato(conn)
-    base = leggi_base(chi)
-    unito, conflitti = unione.unisci(base, mio, suo)
-    if suo is not None and unito == suo:
-        # Niente di nuovo da nessuna delle due parti: non si tocca la revisione.
-        scrivi_base(conn, int(chi["id"]), unito, revisione)
-        return {"ok": True, "revisione": revisione, "dati": unito, "cambiato": False,
+    id_dispositivo = int(chi["id"])
+    # Uno alla volta: se telefono e computer arrivano insieme, ognuno deve unirsi
+    # al diario già unito dell'altro, non a quello di prima (si perderebbe uno dei due).
+    with _una_alla_volta:
+        suo, revisione = leggi_stato(conn)
+        if corpo.base is None:
+            riga = conn.execute("SELECT base FROM dispositivi WHERE id = ?", (id_dispositivo,)).fetchone()
+            base = leggi_base(riga)
+        else:
+            # La base la dice il dispositivo: se l'ultima risposta non gli è
+            # arrivata (rete caduta, modifica fatta nel frattempo) la sua base è
+            # ancora quella di prima, e usare quella nuova farebbe sembrare
+            # "cancellato" tutto quello che non ha ancora visto.
+            base = diario_alla_revisione(conn, corpo.base) if corpo.base > 0 else None
+            segna_base_dichiarata(conn, id_dispositivo, corpo.base)
+        unito, conflitti = unione.unisci(base, mio, suo)
+        if suo is not None and unito == suo:
+            # Niente di nuovo da nessuna delle due parti: non si tocca la revisione.
+            scrivi_base(conn, id_dispositivo, unito, revisione)
+            return {"ok": True, "revisione": revisione, "dati": unito, "cambiato": False,
+                    "conflitti": conflitti, "diario": unione.conta(unito)}
+        nuova = scrivi_stato(conn, imp, unito)
+        scrivi_base(conn, id_dispositivo, unito, nuova)
+        return {"ok": True, "revisione": nuova, "dati": unito, "cambiato": True,
                 "conflitti": conflitti, "diario": unione.conta(unito)}
-    nuova = scrivi_stato(conn, imp, unito)
-    scrivi_base(conn, int(chi["id"]), unito, nuova)
-    return {"ok": True, "revisione": nuova, "dati": unito, "cambiato": True,
-            "conflitti": conflitti, "diario": unione.conta(unito)}
 
 
 def _impronta(percorso: Path) -> str | None:

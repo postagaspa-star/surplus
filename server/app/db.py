@@ -14,12 +14,13 @@ from __future__ import annotations
 import contextlib
 import hashlib
 import json
+import zlib
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterator
 
-from .config import STORICO_MASSIMO, Impostazioni
+from .config import REVISIONI_TENUTE, STORICO_MASSIMO, Impostazioni
 
 SCHEMA = [
     """CREATE TABLE IF NOT EXISTS stato (
@@ -37,6 +38,12 @@ SCHEMA = [
         ultimo_contatto TEXT,
         base TEXT,
         base_revisione INTEGER
+    )""",
+    # Il diario a ogni revisione recente, compresso. Serve a ritrovare la base vera
+    # di un dispositivo che non ha tenuto l'ultima risposta (vedi diario_alla_revisione).
+    """CREATE TABLE IF NOT EXISTS revisioni (
+        revisione INTEGER PRIMARY KEY,
+        dati BLOB NOT NULL
     )""",
     """CREATE TABLE IF NOT EXISTS codici_abbinamento (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -80,6 +87,10 @@ def connetti(percorso: Path) -> sqlite3.Connection:
 def init_db(conn: sqlite3.Connection) -> None:
     for sql in SCHEMA:
         conn.execute(sql)
+    colonne = {r["name"] for r in conn.execute("PRAGMA table_info(dispositivi)")}
+    if "base_dichiarata" not in colonne:
+        # Database della 1.0.0: la colonna arriva con la 1.1.0.
+        conn.execute("ALTER TABLE dispositivi ADD COLUMN base_dichiarata INTEGER")
 
 
 @contextlib.contextmanager
@@ -115,13 +126,51 @@ def scrivi_stato(conn: sqlite3.Connection, imp: Impostazioni, dati: dict[str, An
         revisione = (int(riga["revisione"]) + 1) if riga else 1
         if riga is not None:
             _metti_da_parte(imp, int(riga["revisione"]), riga["dati"])
+            _tieni_revisione(conn, int(riga["revisione"]), riga["dati"])
         conn.execute(
             "INSERT INTO stato (id, dati, revisione, aggiornato_il) VALUES (1, ?, ?, ?)"
             " ON CONFLICT(id) DO UPDATE SET dati = excluded.dati, revisione = excluded.revisione,"
             " aggiornato_il = excluded.aggiornato_il",
             (testo, revisione, iso(adesso())),
         )
+        _tieni_revisione(conn, revisione, testo)
+        _pota_revisioni(conn, revisione)
     return revisione
+
+
+def _tieni_revisione(conn: sqlite3.Connection, revisione: int, testo: str) -> None:
+    conn.execute("INSERT OR IGNORE INTO revisioni (revisione, dati) VALUES (?, ?)",
+                 (revisione, zlib.compress(testo.encode("utf-8"))))
+
+
+def _pota_revisioni(conn: sqlite3.Connection, corrente: int) -> None:
+    """Restano le ultime REVISIONI_TENUTE e quelle che un dispositivo potrebbe
+    avere ancora come base: chi è stato via una settimana deve ritrovarla."""
+    protette = set()
+    for r in conn.execute("SELECT base_revisione, base_dichiarata FROM dispositivi"):
+        protette.update(v for v in (r["base_revisione"], r["base_dichiarata"]) if v is not None)
+    soglia = corrente - REVISIONI_TENUTE
+    for (n,) in conn.execute("SELECT revisione FROM revisioni WHERE revisione <= ?", (soglia,)).fetchall():
+        if n not in protette:
+            conn.execute("DELETE FROM revisioni WHERE revisione = ?", (n,))
+
+
+def diario_alla_revisione(conn: sqlite3.Connection, revisione: int) -> dict[str, Any] | None:
+    """Il diario com'era a quella revisione, o None se non c'è più.
+
+    None vuol dire "base vuota": l'unione allora somma e non cancella niente.
+    È il ripiego sicuro: al peggio torna su una voce cancellata, mai il contrario.
+    """
+    dati, corrente = leggi_stato(conn)
+    if revisione == corrente:
+        return dati
+    riga = conn.execute("SELECT dati FROM revisioni WHERE revisione = ?", (revisione,)).fetchone()
+    if riga is None:
+        return None
+    try:
+        return json.loads(zlib.decompress(riga["dati"]).decode("utf-8"))
+    except (ValueError, TypeError, zlib.error):
+        return None
 
 
 def _metti_da_parte(imp: Impostazioni, revisione: int, testo: str) -> None:
@@ -155,6 +204,10 @@ def leggi_base(riga: sqlite3.Row | None) -> dict[str, Any] | None:
         return json.loads(riga["base"])
     except (ValueError, TypeError):
         return None
+
+
+def segna_base_dichiarata(conn: sqlite3.Connection, id_dispositivo: int, revisione: int) -> None:
+    conn.execute("UPDATE dispositivi SET base_dichiarata = ? WHERE id = ?", (revisione, id_dispositivo))
 
 
 def scrivi_base(conn: sqlite3.Connection, id_dispositivo: int, dati: dict[str, Any], revisione: int) -> None:

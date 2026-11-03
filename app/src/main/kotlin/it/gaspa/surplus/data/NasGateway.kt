@@ -54,11 +54,17 @@ class NasGateway(
 
     override suspend fun pull(userId: String): AppData? = null
 
+    /** La revisione dell'ultima risposta, in attesa che AppStore dica di averla tenuta. */
+    @Volatile
+    private var inSospeso: Long? = null
+
     override suspend fun sincronizza(userId: String, data: AppData): AppData? {
-        val s = ultime ?: impostazioni.current().also { ultime = it }
+        val s = impostazioni.current().also { ultime = it }
         if (!s.nasAbbinato) return null
-        val esito = Nas.sincronizza(s.nasIndirizzo, s.nasToken, data)
+        inSospeso = null
+        val esito = Nas.sincronizza(s.nasIndirizzo, s.nasToken, data, s.nasBase.takeIf { it >= 0 })
         esito.onSuccess {
+            inSospeso = it.revisione
             val adesso = System.currentTimeMillis()
             _state.value = SyncState.Synced(adesso)
             impostazioni.salvaNas(ultima = adesso)
@@ -68,10 +74,16 @@ class NasGateway(
             if (e is HttpFailure && e.code == 401) {
                 // Il NAS non ci conosce più: si butta il permesso, così l'app
                 // chiede un codice nuovo invece di riprovare a vuoto per sempre.
-                impostazioni.salvaNas(token = "")
+                impostazioni.salvaNas(token = "", base = -1L)
             }
         }
-        return esito.getOrNull()
+        return esito.getOrNull()?.dati
+    }
+
+    override suspend fun tenuto() {
+        val revisione = inSospeso ?: return
+        inSospeso = null
+        impostazioni.salvaNas(base = revisione)
     }
 
     /** Abbina questo telefono con un codice preso dal NAS. */
@@ -79,7 +91,8 @@ class NasGateway(
         val indirizzo = Nas.normalizza(indirizzoScritto)
             ?: return Result.failure(IllegalArgumentException("indirizzo"))
         return Nas.abbina(indirizzo, codice).map { token ->
-            impostazioni.salvaNas(indirizzo = indirizzo, token = token)
+            // Appena abbinato non c'è ancora una base: la prima volta si somma e basta.
+            impostazioni.salvaNas(indirizzo = indirizzo, token = token, base = -1L)
             ultime = impostazioni.current()
             _state.value = SyncState.Synced(System.currentTimeMillis())
         }
@@ -87,7 +100,7 @@ class NasGateway(
 
     /** Stacca il telefono: il diario resta da tutte e due le parti, ma non si aggiornano più. */
     suspend fun stacca() {
-        impostazioni.salvaNas(token = "", ultima = 0L)
+        impostazioni.salvaNas(token = "", ultima = 0L, base = -1L)
         ultime = impostazioni.current()
         _state.value = SyncState.LocalOnly
     }

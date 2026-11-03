@@ -104,7 +104,7 @@ public sealed class Ponte
         (string Metodo, Func<Task<JsonObject>> Azione)? rotta = nome switch
         {
             "stato" => ("GET", () => Task.FromResult(motore.Stato())),
-            "salva" => ("POST", () => Task.FromResult(motore.Salva(o?["dati"] as JsonObject))),
+            "salva" => ("POST", () => Task.FromResult(motore.Salva(o?["dati"] as JsonObject, Json.Lungo(o?["versione"])))),
             "impostazioni" => ("POST", () => Task.FromResult(motore.CambiaImpostazioni(o ?? new JsonObject()))),
             "cerca" => ("GET", () => alimenti.CercaAsync(Valore(query, "q"))),
             "codice" => ("GET", () => alimenti.PerCodiceAsync(Valore(query, "codice"))),

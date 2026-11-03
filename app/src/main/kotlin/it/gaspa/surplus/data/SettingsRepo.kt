@@ -50,6 +50,8 @@ data class Settings(
     val nasIndirizzo: String = "",
     val nasToken: String = "",
     val nasUltima: Long = 0L,
+    // La revisione dell'ultimo diario unito che il telefono ha davvero tenuto (-1: non si sa).
+    val nasBase: Long = -1L,
 ) {
     /** Il diario sta anche sul NAS solo se questo telefono è stato abbinato. */
     val nasAbbinato: Boolean get() = nasIndirizzo.isNotBlank() && nasToken.isNotBlank()
@@ -88,6 +90,7 @@ class SettingsRepo(context: Context) {
     private val kNasIndirizzo = stringPreferencesKey("nas_indirizzo")
     private val kNasToken = stringPreferencesKey("nas_token")
     private val kNasUltima = androidx.datastore.preferences.core.longPreferencesKey("nas_ultima")
+    private val kNasBase = androidx.datastore.preferences.core.longPreferencesKey("nas_base")
 
     private fun kOn(r: ReminderKey) = booleanPreferencesKey("rem_${r.name}_on")
     private fun kHour(r: ReminderKey) = intPreferencesKey("rem_${r.name}_hour")
@@ -112,6 +115,7 @@ class SettingsRepo(context: Context) {
             nasIndirizzo = p[kNasIndirizzo].orEmpty(),
             nasToken = p[kNasToken].orEmpty(),
             nasUltima = p[kNasUltima] ?: 0L,
+            nasBase = p[kNasBase] ?: -1L,
             reminders = ReminderKey.entries.map { r ->
                 ReminderCfg(
                     key = r,
@@ -131,11 +135,17 @@ class SettingsRepo(context: Context) {
      * l'ora dell'ultima volta: se passasse da [save] riscriverebbe anche gli
      * obiettivi e la chiave, cancellando quello che stai scrivendo adesso.
      */
-    suspend fun salvaNas(indirizzo: String? = null, token: String? = null, ultima: Long? = null) {
+    suspend fun salvaNas(
+        indirizzo: String? = null,
+        token: String? = null,
+        ultima: Long? = null,
+        base: Long? = null,
+    ) {
         appContext.settingsDataStore.edit { p ->
             if (indirizzo != null) p[kNasIndirizzo] = indirizzo
             if (token != null) p[kNasToken] = token
             if (ultima != null) p[kNasUltima] = ultima
+            if (base != null) p[kNasBase] = base
         }
     }
 

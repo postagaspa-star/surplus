@@ -38,6 +38,14 @@ class AppStore private constructor(
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true; prettyPrint = true }
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val writeMutex = Mutex()
+    private val sincronizzazione = Mutex()
+
+    /**
+     * Quante volte è cambiato il diario in memoria. Serve alla sincronizzazione
+     * per accorgersi se hai scritto qualcosa mentre aspettava il NAS.
+     */
+    private val serratura = Any()
+    private var versioneLocale = 0L
 
     private fun fileFor(uid: String) = File(appContext.filesDir, "data-$uid.json")
 
@@ -107,12 +115,18 @@ class AppStore private constructor(
     fun switchUser(uid: String) {
         if (uid == userId) return
         userId = uid
-        _state.value = load(uid)
+        synchronized(serratura) {
+            _state.value = load(uid)
+            versioneLocale++
+        }
     }
 
     private fun mutate(f: (AppData) -> AppData) {
         val uid = userId
-        val next = _state.updateAndGet(f)
+        val next = synchronized(serratura) {
+            versioneLocale++
+            _state.updateAndGet(f)
+        }
         scrivi(uid, next)
     }
 
@@ -120,7 +134,11 @@ class AppStore private constructor(
         scope.launch {
             writeMutex.withLock {
                 try {
-                    scriviSulDisco(fileFor(uid), json.encodeToString(AppData.serializer(), next))
+                    // Sempre il diario di adesso, non quello del momento della modifica: le
+                    // scritture possono arrivare in disordine, e una vecchia arrivata per
+                    // ultima riporterebbe il file indietro.
+                    val daScrivere = if (uid == userId) _state.value else next
+                    scriviSulDisco(fileFor(uid), json.encodeToString(AppData.serializer(), daScrivere))
                 } catch (_: Exception) {
                     // Il flusso in memoria resta valido; ritenterà alla prossima mutazione.
                 }
@@ -155,19 +173,47 @@ class AppStore private constructor(
      * rispondesse con un diario vuoto (un errore suo, un ripristino andato
      * male), senza quel controllo l'app cancellerebbe mesi di pasti da sola.
      */
-    suspend fun sincronizzaOra(): Result<Boolean> {
-        if (!sync.isActive()) return Result.success(false)
+    suspend fun sincronizzaOra(): Result<Boolean> = sincronizzazione.withLock {
+        if (!sync.isActive()) return@withLock Result.success(false)
         val uid = userId
-        val mio = _state.value
-        val unito = sync.sincronizza(uid, mio) ?: return Result.failure(IOException("sincronizzazione non riuscita"))
-        if (unito == mio) return Result.success(false)
-        if (!unioneAccettabile(mio, unito)) {
-            return Result.failure(IOException("Il NAS ha mandato un diario che toglierebbe quasi tutte le voci: non l'ho accettato."))
+        val (mio, versione) = synchronized(serratura) { _state.value to versioneLocale }
+        val unito = sync.sincronizza(uid, mio)
+            ?: return@withLock Result.failure(IOException("sincronizzazione non riuscita"))
+        val cambiato = unito != mio
+        if (cambiato) {
+            if (!unioneAccettabile(mio, unito)) {
+                return@withLock Result.failure(IOException("Il NAS ha mandato un diario che toglierebbe quasi tutte le voci: non l'ho accettato."))
+            }
+            val tenuto = synchronized(serratura) {
+                if (versioneLocale != versione) {
+                    false
+                } else {
+                    _state.value = unito
+                    versioneLocale++
+                    true
+                }
+            }
+            if (!tenuto) {
+                // Hai scritto qualcosa mentre il NAS rispondeva: il diario unito non
+                // lo contiene, e tenerlo lo cancellerebbe. Non si tiene: la base resta
+                // quella di prima e fra poco si rimanda tutto, modifica compresa.
+                pianificaSincronizzazione()
+                return@withLock Result.success(false)
+            }
         }
-        _state.value = unito
-        // senza sincronizzare di nuovo: questo l'ha appena mandato il NAS.
-        scrivi(uid, unito, poiSincronizza = false)
-        return Result.success(true)
+        // Prima sul disco, poi la base: se il telefono si spegnesse in mezzo, al
+        // riavvio la base direbbe "hai già tutto" mentre il file è quello vecchio.
+        if (!scriviAdesso(uid)) {
+            return@withLock Result.failure(IOException("il diario unito non si è salvato sul telefono"))
+        }
+        sync.tenuto()
+        Result.success(cambiato)
+    }
+
+    private suspend fun scriviAdesso(uid: String): Boolean = writeMutex.withLock {
+        runCatching {
+            scriviSulDisco(fileFor(uid), json.encodeToString(AppData.serializer(), _state.value))
+        }.isSuccess
     }
 
     /** Una perdita di oltre metà delle voci in un colpo solo non è mai voluta. */

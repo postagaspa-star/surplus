@@ -66,19 +66,29 @@ object Nas {
                 ?: throw IOException("il NAS non ha dato il permesso")
         }
 
-    /** Manda il diario e riceve quello unito. */
-    suspend fun sincronizza(indirizzo: String, token: String, dati: AppData): Result<AppData> = runCatching {
+    /**
+     * Manda il diario e riceve quello unito, con la sua revisione. [base] è la
+     * revisione dell'ultimo diario unito che il telefono ha tenuto: null se non
+     * si sa (appena abbinato, o app aggiornata da una versione che non la segnava).
+     */
+    suspend fun sincronizza(indirizzo: String, token: String, dati: AppData, base: Long? = null): Result<Unione> = runCatching {
         val radice = normalizza(indirizzo) ?: throw IOException("indirizzo")
-        val corpo = buildJsonObject { put("dati", json.encodeToJsonElement(AppData.serializer(), dati)) }
+        val corpo = buildJsonObject {
+            put("dati", json.encodeToJsonElement(AppData.serializer(), dati))
+            if (base != null && base >= 0) put("base", base)
+        }
         val risposta = Http.postJson(
             "$radice/api/sincronizza",
             corpo.toString(),
             mapOf("User-Agent" to UA, "Authorization" to "Bearer $token"),
             timeoutMs = 60_000,
         )
-        val unito = Json.parseToJsonElement(risposta).jsonObject["dati"] as? JsonObject
+        val oggetto = Json.parseToJsonElement(risposta).jsonObject
+        val unito = oggetto["dati"] as? JsonObject
             ?: throw IOException("il NAS non ha mandato il diario")
-        json.decodeFromJsonElement(AppData.serializer(), unito)
+        val revisione = oggetto["revisione"]?.jsonPrimitive?.content?.toLongOrNull()
+            ?: throw IOException("il NAS non ha detto la revisione")
+        Unione(json.decodeFromJsonElement(AppData.serializer(), unito), revisione)
     }
 
     /** La versione dell'app pubblicata sul NAS, se è più nuova di quella installata. */
@@ -131,6 +141,9 @@ object Nas {
 }
 
 /** Una versione dell'app pubblicata sul NAS. */
+/** Il diario unito dal NAS e il numero che il NAS gli ha dato. */
+data class Unione(val dati: AppData, val revisione: Long)
+
 data class VersioneDaScaricare(
     val codice: Int,
     val nome: String,

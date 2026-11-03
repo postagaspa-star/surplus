@@ -163,12 +163,30 @@
     };
   }
 
-  /** Modifica il documento e lo manda al programma: se il salvataggio fallisce si torna indietro. */
+  /**
+   * Modifica il documento e lo manda al programma: se il salvataggio fallisce si torna indietro.
+   *
+   * Col numero del diario: se nel frattempo il NAS ha scritto (un pasto dal telefono),
+   * il programma risponde "superato" invece di sovrascrivere. Allora si rilegge il diario
+   * nuovo e si rifà la stessa modifica sopra: `cambia` lavora sempre sul documento che
+   * riceve, quindi si può ripetere.
+   */
   async function salva(cambia) {
-    const prima = JSON.stringify(stato.dati);
+    let prima = JSON.stringify(stato.dati);
     cambia(stato.dati);
     disegna();
-    const r = await Api.post('/locale/salva', { dati: stato.dati });
+    let r = await Api.post('/locale/salva', { dati: stato.dati, versione: stato.versione });
+    for (let tentativo = 0; tentativo < 3 && !r.ok && r.dati && r.dati.codice === 'superato'; tentativo++) {
+      const s = await Api.get('/locale/stato');
+      if (!s.ok) break;
+      stato.dati = s.dati.dati;
+      stato.versione = s.dati.versione || 0;
+      stato.impostazioni = s.dati.impostazioni;
+      prima = JSON.stringify(stato.dati);
+      cambia(stato.dati);
+      disegna();
+      r = await Api.post('/locale/salva', { dati: stato.dati, versione: stato.versione });
+    }
     if (!r.ok) {
       stato.dati = JSON.parse(prima);
       disegna();

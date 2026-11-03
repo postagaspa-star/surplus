@@ -33,6 +33,9 @@ public sealed class Motore : IDisposable
     /// <summary>Cambia a ogni salvataggio: la pagina se ne accorge se qualcun altro ha scritto.</summary>
     public long VersioneDati => Interlocked.Read(ref versione);
 
+    /// <summary>Il codice di un salvataggio rifiutato perché il diario era già cambiato.</summary>
+    public const string Superato = "superato";
+
     private JsonObject Carica()
     {
         var testoPrincipale = Archivio.LeggiTesto(percorsi.Dati);
@@ -76,6 +79,12 @@ public sealed class Motore : IDisposable
         lock (serratura) return (JsonObject)dati.DeepClone();
     }
 
+    /// <summary>Il diario e il suo numero, presi insieme: fra le due letture potrebbe scrivere qualcuno.</summary>
+    public (JsonObject Dati, long Versione) DatiConVersione()
+    {
+        lock (serratura) return ((JsonObject)dati.DeepClone(), VersioneDati);
+    }
+
     public JsonObject Stato()
     {
         lock (serratura)
@@ -90,11 +99,26 @@ public sealed class Motore : IDisposable
         }
     }
 
-    /// <summary>Salva quello che manda la pagina, dopo i controlli che impediscono di svuotare il diario.</summary>
-    public JsonObject Salva(JsonObject? nuovo)
+    /// <summary>
+    /// Salva quello che manda la pagina, dopo i controlli che impediscono di svuotare il diario.
+    /// Con <paramref name="seVersione"/> salva solo se nel frattempo nessun altro ha scritto:
+    /// chi manda un diario intero preso prima cancellerebbe quello arrivato dopo (un pasto
+    /// scritto sul telefono, per esempio). Altrimenti risponde "superato" e chi ha mandato
+    /// rifà la sua modifica sul diario nuovo.
+    /// </summary>
+    public JsonObject Salva(JsonObject? nuovo, long? seVersione = null)
     {
         lock (serratura)
         {
+            if (seVersione is long attesa && attesa != VersioneDati)
+            {
+                return new JsonObject
+                {
+                    ["errore"] = "Il diario è cambiato nel frattempo.",
+                    ["codice"] = Superato,
+                    ["versione"] = VersioneDati,
+                };
+            }
             if (!Diario.Accettabile(nuovo, dati, out var motivo))
             {
                 Log.Errore("salvataggio rifiutato: " + motivo);

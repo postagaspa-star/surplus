@@ -35,6 +35,25 @@ perde una riga.
 La regola sta tutta in `app/unione.py`, senza rete né database: si può leggere e
 si può provare (`tests/test_unione.py`).
 
+### La base la dice il dispositivo (dalla 1.1.0)
+
+Con la 1.0.0 la base la decideva il server: "quello che ti ho appena mandato".
+Ma se quella risposta non arriva (il Wi-Fi cade proprio in quel momento) o il
+dispositivo non la tiene (hai scritto un pasto mentre il NAS rispondeva), il
+dispositivo resta col diario di prima, e alla volta dopo tutto quello che non ha
+ancora visto sembrerebbe "cancellato da lui".
+
+Ora ogni dispositivo manda anche `base`: la revisione dell'ultimo diario unito
+che ha **davvero** tenuto e scritto sul disco. Il server tiene le ultime 30
+revisioni (compresse, tabella `revisioni`) più quelle che qualche dispositivo ha
+ancora come base, così anche un telefono rimasto fuori casa una settimana ritrova
+la sua. Se una base non c'è più si usa una base vuota: si somma e non si cancella
+niente — al peggio torna su una voce cancellata, mai il contrario.
+
+Le app vecchie, che `base` non lo mandano, funzionano come prima. E le
+sincronizzazioni passano una alla volta: se telefono e computer arrivano
+insieme, il secondo si unisce al diario già unito del primo.
+
 ## Com'è fatto
 
 ```
@@ -57,7 +76,7 @@ Rotte:
 | `GET /api/salute` | sta in piedi? cosa c'è nel diario? |
 | `POST /api/abbina` | codice di 8 cifre → permesso per il dispositivo |
 | `GET /api/diario` | il diario del NAS (un dispositivo nuovo) |
-| `POST /api/sincronizza` | mandi il tuo, ti torna quello unito |
+| `POST /api/sincronizza` | mandi il tuo (e la tua base), ti torna quello unito con la sua revisione |
 | `GET /api/versione` | che versione delle app c'è da scaricare |
 | `GET /scarica/<file>` | il pacchetto del computer, la sua firma, l'app Android |
 

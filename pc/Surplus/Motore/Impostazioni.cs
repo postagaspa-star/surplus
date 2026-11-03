@@ -32,6 +32,12 @@ public sealed class Impostazioni
     /// <summary>Il permesso dato dal NAS a questo computer: cifrato sul disco, mai verso la pagina.</summary>
     public string NasToken { get; set; } = "";
 
+    /// <summary>
+    /// La revisione dell'ultimo diario unito che questo computer ha davvero tenuto
+    /// (-1: non si sa). Il NAS la usa come base dell'unione.
+    /// </summary>
+    public long NasBase { get; set; } = -1;
+
     public bool AiAttiva => !string.IsNullOrWhiteSpace(AiChiave);
 
     public string AiModelloEffettivo => string.IsNullOrWhiteSpace(AiModello)
@@ -56,6 +62,7 @@ public sealed class Impostazioni
         i.AiChiave = Dpapi.Decifra(Json.Testo(o["aiChiaveCifrata"])) ?? "";
         i.NasIndirizzo = Json.Testo(o["nasIndirizzo"]) ?? i.NasIndirizzo;
         i.NasToken = Dpapi.Decifra(Json.Testo(o["nasTokenCifrato"])) ?? "";
+        i.NasBase = Json.Lungo(o["nasBase"]) ?? i.NasBase;
         return i;
     }
 
@@ -74,6 +81,7 @@ public sealed class Impostazioni
         ["aiChiaveCifrata"] = Dpapi.Cifra(AiChiave),
         ["nasIndirizzo"] = NasIndirizzo,
         ["nasTokenCifrato"] = Dpapi.Cifra(NasToken),
+        ["nasBase"] = NasBase,
     }));
 
     /// <summary>Quello che la pagina può vedere: tutto tranne la chiave.</summary>

@@ -54,6 +54,14 @@ interface SyncGateway {
      */
     suspend fun sincronizza(userId: String, data: AppData): AppData? = null
 
+    /**
+     * L'ultimo diario restituito da [sincronizza] è stato tenuto e scritto sul
+     * disco. Solo da qui in poi vale come base: una risposta scartata (arrivata
+     * mentre scrivevi un pasto, o mai arrivata) non deve contare, altrimenti
+     * tutto quello che contiene sembrerebbe cancellato alla volta dopo.
+     */
+    suspend fun tenuto() = Unit
+
     fun isActive(): Boolean
 }
 

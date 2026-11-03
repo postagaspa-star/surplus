@@ -68,8 +68,17 @@ public sealed class ClientNas
     public Task<EsitoNas> DiarioAsync(string indirizzo, string token, CancellationToken annulla = default) =>
         ChiamaAsync(HttpMethod.Get, indirizzo, "api/diario", null, token, annulla);
 
-    public Task<EsitoNas> SincronizzaAsync(string indirizzo, string token, JsonObject dati, CancellationToken annulla = default) =>
-        ChiamaAsync(HttpMethod.Post, indirizzo, "api/sincronizza", new JsonObject { ["dati"] = dati.DeepClone() }, token, annulla);
+    /// <summary>
+    /// Manda il diario. <paramref name="base"/> è la revisione dell'ultimo diario unito
+    /// tenuto davvero: negativa se non si sa, e allora il NAS usa quella che ricorda lui.
+    /// </summary>
+    public Task<EsitoNas> SincronizzaAsync(string indirizzo, string token, JsonObject dati, long @base = -1,
+                                           CancellationToken annulla = default)
+    {
+        var corpo = new JsonObject { ["dati"] = dati.DeepClone() };
+        if (@base >= 0) corpo["base"] = @base;
+        return ChiamaAsync(HttpMethod.Post, indirizzo, "api/sincronizza", corpo, token, annulla);
+    }
 
     /// <summary>Scarica un file (il pacchetto dell'aggiornamento) senza tenerlo in memoria.</summary>
     public async Task<bool> ScaricaAsync(string url, string file, CancellationToken annulla = default)

@@ -6,7 +6,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-VERSIONE = "1.0.0"
+VERSIONE = "1.1.0"
 
 CIFRE_CODICE = 8
 DURATA_CODICE_MINUTI = 15
@@ -18,6 +18,9 @@ MASSIMO_BYTE_DIARIO = 8 * 1024 * 1024
 
 # Quante versioni vecchie del diario si tengono da parte.
 STORICO_MASSIMO = 30
+
+# Quante revisioni recenti si tengono nel database per ritrovare la base di un dispositivo.
+REVISIONI_TENUTE = 30
 
 
 @dataclass(frozen=True)

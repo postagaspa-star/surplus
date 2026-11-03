@@ -6,7 +6,7 @@
 services:
   surplus:
     build: .
-    image: surplus-nas:1.0.0
+    image: surplus-nas:1.1.0
     container_name: surplus
     restart: unless-stopped
     ports:
