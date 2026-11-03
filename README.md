@@ -2,11 +2,11 @@
 
 ![Platform](https://img.shields.io/badge/platform-Android%208.0%2B-3DDC84?logo=android&logoColor=white)
 ![Version](https://img.shields.io/badge/version-2.7.1-14532D)
-![Privacy](https://img.shields.io/badge/data-on%20device%20only-blue)
+![Privacy](https://img.shields.io/badge/data-only%20on%20your%20own%20devices-blue)
 
 **Android app for tracking food and training through a calorie surplus** (lean bulking). Built to be fast and usable every day rather than a nutritionist-grade tracker: consistency matters more than being accurate to the gram.
 
-No account, no ads, no subscription. Your data stays on the phone.
+No account, no ads, no subscription. Your data stays on devices you own: the phone, and if you want, your computer and your own NAS at home. Never in someone else's cloud.
 
 ## What it does
 
@@ -42,6 +42,14 @@ It is a native .NET program hosting the interface in a WebView2 (the same archit
 
 It also bundles Roboto, the font the phone uses, so the text looks the same on a computer that doesn't have it.
 
+## Why the diary no longer lives only on the phone
+
+Surplus started out strictly local-first: one file, on the phone, and nowhere else. That was the whole privacy story, and it was a good one — until my phone started failing. It crashed and rebooted on its own, the USB connection stopped working, and for a while three months of diary were locked inside a device I could not use. I got them back only because a backup I had exported that same morning happened to exist.
+
+That changed how I thought about it. Keeping the data in one place is not what protects your privacy; keeping it in places **you** control is. A single copy on a single phone is private, but it is also one broken screen away from being gone. So the diary now lives in several places, all of them mine: the phone, the computer, and a small server on the NAS at home. If one of them dies, the others still have everything, and nothing ever leaves the house.
+
+Nothing was given up for it. There is still no account and no cloud, no company in the middle and no data on anyone else's machine. Each app still works on its own with the NAS switched off — the local file is still the truth for that device — and pairing with the NAS is a choice you make, not a requirement.
+
 ## Keeping the two in step, at home
 
 Phone and computer can share one diary through a small server you run on your own NAS (`server/`): FastAPI in a Docker container, on the home network, pairing a device with an 8-digit code. No account, nothing on anyone else's machine.
@@ -72,12 +80,13 @@ Updates install over the previous version without losing your data.
 
 ## Privacy
 
-Surplus runs **offline**. The diary, weigh-ins, workouts and settings live in a file belonging to the app, on the phone. There is no Surplus service and no account: the only server that can ever exist is the one you run on your own NAS, on your own network, and only if you pair a device with it.
+Surplus runs **offline**. The diary, weigh-ins, workouts and settings live in a file belonging to the app, on the phone — and, if you pair them, on your computer and on your own NAS. There is no Surplus service and no account: the only server that can ever exist is the one you run on your own NAS, on your own network, and only if you pair a device with it.
 
-Something leaves the phone in three cases only, each one started by you:
+Something leaves the phone in four cases only, each one started by you:
 
 | When | What goes out | Where to |
 |---|---|---|
+| You paired the phone with your NAS | the diary | your own NAS, on your home network, nowhere else |
 | You search a food by name or scan a barcode | the search text or the product code, nothing else | Open Food Facts, then USDA FoodData Central |
 | You use photo recognition | only the photos you picked | the AI service you configured yourself |
 | An exercise name is one the app can't recognise | only the exercise name | the AI service you configured yourself |
